@@ -7,7 +7,7 @@ type Codec interface {
 	UnMarshaler([]byte) error
 }
 
-//TODO
+//TODO: Should perfect for general purpose
 func Get(typ string) (Codec, error) {
 	if typ == "protobufcdc" {
 		return new(protobufcdc.ProtobufCDC), nil

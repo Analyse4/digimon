@@ -9,7 +9,7 @@ type Acceptor interface {
 	Accept()
 }
 
-//TODO
+//TODO: Should perfect for general purpose
 func Get(typ string, addr string, codecTyp string) (Acceptor, error) {
 	act := new(websocket.Websocket)
 	if typ == "ws" && codecTyp == "protobufcdc" {
