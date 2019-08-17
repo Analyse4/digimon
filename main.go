@@ -4,7 +4,8 @@ import (
 	"digimon/config"
 	"digimon/dao"
 	"digimon/service"
-	"fmt"
+	"flag"
+	"github.com/golang/glog"
 	"github.com/urfave/cli"
 	"log"
 	"os"
@@ -29,7 +30,8 @@ func main() {
 
 func Start() cli.ActionFunc {
 	return func(c *cli.Context) error {
-		fmt.Println("digimon server start!")
+		flag.Parse()
+		glog.Info("digimon start!")
 		config.Init()
 		dao.Init()
 		svc, _ := service.New("digimon", "protobufcdc", "ws", "ws://:2244/echo")

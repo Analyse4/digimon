@@ -4,7 +4,6 @@ import (
 	"digimon/acceptor/websocket/wsconnection"
 	"digimon/codec"
 	"digimon/connmanager"
-	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
@@ -33,8 +32,9 @@ func (ws *Websocket) Accept() {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		fmt.Println("new ws connection!")
+
 		cm.Add(wsconnection.NewConnection(c))
+		log.Printf("new ws connection %d!", cm.GetCurrentConnID())
 	})
 
 	err = http.ListenAndServe(urlObj.Host, nil)

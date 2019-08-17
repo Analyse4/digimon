@@ -49,3 +49,5 @@ func New() *ConnManager {
 	}()
 	return cm
 }
+
+func (cm *ConnManager) GetCurrentConnID() int64 { return cm.currentID }

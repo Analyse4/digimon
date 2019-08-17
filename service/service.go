@@ -3,7 +3,7 @@ package service
 import (
 	"digimon/acceptor"
 	"digimon/handler"
-	"fmt"
+	"github.com/golang/glog"
 )
 
 type Service interface {
@@ -12,8 +12,8 @@ type Service interface {
 
 //TODO
 func New(name, codecTyp, acceptorTyp, addr string) (Service, error) {
-	fmt.Println("create service successful!")
-	fmt.Println("name: " + name + "codec: " + codecTyp + "acceptor: " + acceptorTyp + "addr: " + addr)
+	glog.Info("create service successful!")
+	glog.Info("name: " + name + "codec: " + codecTyp + "acceptor: " + acceptorTyp + "addr: " + addr)
 	dgm := new(handler.Digimon)
 	dgm.Name = name
 	dgm.Acceptor, _ = acceptor.Get(acceptorTyp, addr, codecTyp)
