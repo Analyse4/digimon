@@ -11,7 +11,7 @@ type Service interface {
 }
 
 //TODO
-func New(name, codecTyp, acceptorTyp string, addr string) (Service, error) {
+func New(name, codecTyp, acceptorTyp, addr string) (Service, error) {
 	fmt.Println("create service successful!")
 	fmt.Println("name: " + name + "codec: " + codecTyp + "acceptor: " + acceptorTyp + "addr: " + addr)
 	dgm := new(handler.Digimon)
