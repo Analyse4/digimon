@@ -6,8 +6,10 @@ import (
 	"digimon/service"
 	"flag"
 	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/urfave/cli"
 	"log"
+	"net/http"
 	"os"
 	"time"
 )
@@ -31,6 +33,7 @@ func main() {
 func Start() cli.ActionFunc {
 	return func(c *cli.Context) error {
 		flag.Parse()
+		http.Handle("/metrics", promhttp.Handler())
 		glog.Info("digimon start!")
 		config.Init()
 		dao.Init()
