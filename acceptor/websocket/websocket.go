@@ -10,12 +10,12 @@ import (
 	"net/url"
 )
 
+// TODO: codec should become service field
 type Websocket struct {
 	Addr  string
 	Codec codec.Codec
 }
 
-//TODO: Only start read loop
 func (ws *Websocket) Accept() {
 	urlObj, err := url.Parse(ws.Addr)
 	if err != nil {

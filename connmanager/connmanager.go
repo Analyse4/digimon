@@ -3,9 +3,9 @@ package connmanager
 import (
 	"digimon/acceptor/websocket/wsconnection"
 	"fmt"
+	"log"
 	"strconv"
 	"sync"
-	"traefik/log"
 )
 
 const INVALIDID = 0
@@ -40,7 +40,7 @@ func New() *ConnManager {
 			select {
 			case connID := <-cm.cleanConn:
 				if connID == INVALIDID {
-					log.Error("Invalid connID")
+					log.Println("Invalid connID")
 				}
 				delete(cm.connMap, connID)
 				log.Printf("conn %d is deleted", connID)

@@ -1,0 +1,12 @@
+syntax = "proto3";
+package pbprotocol;
+
+message LoginReq {
+    string username = 1;
+    string password = 2;
+}
+
+message LoginAck {
+    int64 result = 1;
+    string message = 2;
+}
