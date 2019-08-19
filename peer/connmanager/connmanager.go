@@ -1,8 +1,10 @@
 package connmanager
 
 import (
-	"digimon/acceptor/websocket/wsconnection"
+	"digimon/codec"
+	"digimon/peer/connection"
 	"fmt"
+	"github.com/golang/glog"
 	"log"
 	"strconv"
 	"sync"
@@ -11,28 +13,44 @@ import (
 const INVALIDID = 0
 
 type ConnManager struct {
-	connMap   map[int64]*wsconnection.Connection
+	connMap   map[int64]connection.Connection
 	currentID int64
 	mu        *sync.Mutex
 	cleanConn chan int64
+	codec     codec.Codec
 }
 
-func (cm *ConnManager) Add(c *wsconnection.Connection) {
+func (cm *ConnManager) Add(c connection.Connection) {
 	cm.mu.Lock()
-	defer cm.mu.Unlock()
 	cm.currentID = cm.currentID + 1
-	c.Id = cm.currentID
-	c.ReqDeleteConn = cm.cleanConn
 	cm.connMap[cm.currentID] = c
+	cm.mu.Unlock()
+	c.SetID(cm.currentID)
+	c.SetReqDeleteConn(cm.cleanConn)
 	fmt.Println("Total connection num: " + strconv.Itoa(len(cm.connMap)))
+
+	c.GetWaitGroup().Add(2)
+	go c.ReadLoop(cm.codec)
+	go c.WriteLoop()
+	go func() {
+		c.GetWaitGroup().Wait()
+		if c.GetReqDeleteConn() != nil {
+			c.GetReqDeleteConn() <- c.GetID()
+		} else {
+			glog.Error("connection haven't init successful!")
+		}
+		glog.Info("Connection %d\n is closed!", c.GetID())
+	}()
 }
 
-func New() *ConnManager {
+func New(codecTyp string) *ConnManager {
+	cd, _ := codec.Get(codecTyp)
 	cm := &ConnManager{
-		make(map[int64]*wsconnection.Connection),
+		make(map[int64]connection.Connection),
 		INVALIDID,
 		new(sync.Mutex),
 		make(chan int64),
+		cd,
 	}
 	go func() {
 		log.Println("conn cleaner start!")

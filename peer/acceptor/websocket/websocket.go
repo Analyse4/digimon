@@ -1,28 +1,26 @@
 package websocket
 
 import (
-	"digimon/acceptor/websocket/wsconnection"
-	"digimon/codec"
-	"digimon/connmanager"
+	"digimon/peer/connection/wsconnection"
+	"digimon/service"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"net/url"
 )
 
-// TODO: codec should become service field
-type Websocket struct {
-	Addr  string
-	Codec codec.Codec
-}
+type Websocket struct{}
 
-func (ws *Websocket) Accept() {
-	urlObj, err := url.Parse(ws.Addr)
+func (ws *Websocket) Accept(s service.Service) {
+	urlObj, err := url.Parse(s.GetAddr())
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	cm := connmanager.New()
+	cm, err := s.GetConnManager()
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	http.HandleFunc(urlObj.Path, func(writer http.ResponseWriter, request *http.Request) {
 		c, err := (&websocket.Upgrader{
