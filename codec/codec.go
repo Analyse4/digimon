@@ -1,16 +1,18 @@
 package codec
 
-import "digimon/codec/protobufcdc"
+import (
+	"digimon/codec/protobuf"
+)
 
 type Codec interface {
-	Marshaler([]byte) error
-	UnMarshaler([]byte) error
+	Marshal([]byte) error
+	UnMarshal([]byte) (*protobuf.Pack, error)
 }
 
 //TODO: Should perfect for general purpose
 func Get(typ string) (Codec, error) {
-	if typ == "protobufcdc" {
-		return new(protobufcdc.ProtobufCDC), nil
+	if typ == "protobuf" {
+		return new(protobuf.Protobuf), nil
 	}
 	return nil, nil
 }

@@ -4,6 +4,7 @@ import (
 	"digimon/config"
 	"digimon/dao"
 	"digimon/handler"
+	_ "digimon/svcregister"
 	"flag"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -38,7 +39,7 @@ func Start() cli.ActionFunc {
 		config.Init()
 		dao.Init()
 		svc := new(handler.Digimon)
-		svc.Init("digimon", "protobufcdc", "ws", "ws://:2244/echo")
+		svc.Init("digimon", "protobuf", "ws", "ws://:2244/echo")
 		svc.Start()
 		return nil
 	}

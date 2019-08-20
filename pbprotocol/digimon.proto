@@ -1,6 +1,11 @@
 syntax = "proto3";
 package pbprotocol;
 
+message MsgPack {
+    string router = 1;
+    bytes data = 2;
+}
+
 message LoginReq {
     string username = 1;
     string password = 2;

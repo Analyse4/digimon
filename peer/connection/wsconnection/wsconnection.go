@@ -4,7 +4,6 @@ import (
 	"digimon/codec"
 	"digimon/pbprotocol"
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	"log"
 	"sync"
@@ -86,12 +85,14 @@ func (c *WSConnection) GetWaitGroup() *sync.WaitGroup {
 }
 
 func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec) error {
-	req := new(pbprotocol.LoginReq)
-	err := proto.Unmarshal(msg, req)
-	if err != nil {
-		return err
-	}
-	log.Printf("login request-----username:%s, password:%s\n", req.Username, req.Password)
+	//req := new(pbprotocol.LoginReq)
+	//err := proto.Unmarshal(msg, req)
+	//if err != nil {
+	//	return err
+	//}
+	//log.Printf("login request-----username:%s, password:%s\n", req.Username, req.Password)
+	pack, _ := cd.UnMarshal(msg)
+	log.Printf("msg pack-----router:%s, username: %s, password:%s\n", pack.Router, pack.Msg.(*pbprotocol.LoginReq).Username, pack.Msg.(*pbprotocol.LoginReq).Password)
 	return nil
 	//TODO: codec
 	//TODO: processFunc
