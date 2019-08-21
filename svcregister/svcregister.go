@@ -1,18 +1,34 @@
 package svcregister
 
 import (
-	"digimon/pbprotocol"
+	"fmt"
 	"reflect"
+	"sync"
 )
 
-type SVCRegister struct {
-	Register map[string]reflect.Type
+type Handler struct {
+	Typ      reflect.Type
+	Func     reflect.Method
+	Receiver reflect.Value
 }
 
-var SVCR *SVCRegister
+var SVCRegister sync.Map
 
 func init() {
-	SVCR = new(SVCRegister)
-	SVCR.Register = make(map[string]reflect.Type)
-	SVCR.Register["digimon.login"] = reflect.TypeOf(pbprotocol.LoginReq{})
+	SVCRegister = sync.Map{}
+}
+
+func Get(index string) (*Handler, error) {
+	h, ok := SVCRegister.Load(index)
+	if !ok {
+		return nil, fmt.Errorf("get handler failed-----index: %s", index)
+	}
+	if h == nil {
+		return nil, fmt.Errorf("handler is not registed----index: %s", index)
+	}
+	return h.(*Handler), nil
+}
+
+func Set(index string, handler *Handler) {
+	SVCRegister.Store(index, handler)
 }

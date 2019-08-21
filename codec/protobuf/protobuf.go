@@ -3,6 +3,7 @@ package protobuf
 import (
 	"digimon/pbprotocol"
 	"digimon/svcregister"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"reflect"
 	"traefik/log"
@@ -27,11 +28,13 @@ func (pbcdc *Protobuf) UnMarshal(msg []byte) (*Pack, error) {
 		return nil, err
 	}
 	router := mp.Router
-	reqTyp, ok := svcregister.SVCR.Register["digimon.login"]
-	if !ok {
+	handler, err := svcregister.Get(router)
+	if err != nil {
 		log.Println("service request type is not registered!")
+		//return nil, err
 	}
-	req := reflect.New(reqTyp).Interface()
+	fmt.Println(handler)
+	req := reflect.New(handler.Typ.Elem()).Interface()
 	err = proto.Unmarshal(mp.Data, req.(proto.Message))
 	pack := new(Pack)
 	pack.Router = router

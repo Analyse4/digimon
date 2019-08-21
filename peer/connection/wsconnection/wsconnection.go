@@ -3,9 +3,12 @@ package wsconnection
 import (
 	"digimon/codec"
 	"digimon/pbprotocol"
+	"digimon/svcregister"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	"log"
+	"reflect"
 	"sync"
 )
 
@@ -85,16 +88,21 @@ func (c *WSConnection) GetWaitGroup() *sync.WaitGroup {
 }
 
 func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec) error {
-	//req := new(pbprotocol.LoginReq)
-	//err := proto.Unmarshal(msg, req)
-	//if err != nil {
-	//	return err
-	//}
-	//log.Printf("login request-----username:%s, password:%s\n", req.Username, req.Password)
 	pack, _ := cd.UnMarshal(msg)
 	log.Printf("msg pack-----router:%s, username: %s, password:%s\n", pack.Router, pack.Msg.(*pbprotocol.LoginReq).Username, pack.Msg.(*pbprotocol.LoginReq).Password)
+	h, err := svcregister.Get(pack.Router)
+	if err != nil {
+		return err
+	}
+	f := h.Func
+	rv := f.Func.Call([]reflect.Value{h.Receiver, reflect.ValueOf(pack.Msg)})
+	if rv[1].Interface() != nil {
+		fmt.Println(rv[1].Interface().(error))
+	}
+	ack, err := proto.Marshal(rv[0].Interface().(proto.Message))
+	if err != nil {
+		log.Println(err)
+	}
+	c.SendBuffer <- ack
 	return nil
-	//TODO: codec
-	//TODO: processFunc
-	//TODO: send
 }
