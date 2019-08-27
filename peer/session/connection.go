@@ -1,4 +1,4 @@
-package connection
+package session
 
 import (
 	"digimon/codec"
@@ -6,11 +6,12 @@ import (
 )
 
 type Connection interface {
-	ReadLoop(codec.Codec)
+	ReadLoop(codec.Codec, *Session)
 	WriteLoop()
 	GetID() int64
 	SetID(int64)
 	GetReqDeleteConn() chan<- int64
 	SetReqDeleteConn(chan<- int64)
 	GetWaitGroup() *sync.WaitGroup
+	Close()
 }

@@ -3,6 +3,7 @@ package wsconnection
 import (
 	"digimon/codec"
 	"digimon/pbprotocol"
+	"digimon/peer/session"
 	"digimon/svcregister"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -27,7 +28,7 @@ func NewConnection(c *websocket.Conn) *WSConnection {
 	return nc
 }
 
-func (c *WSConnection) ReadLoop(cd codec.Codec) {
+func (c *WSConnection) ReadLoop(cd codec.Codec, sess *session.Session) {
 	for {
 		_, data, err := c.Conn.ReadMessage()
 		if err != nil {
@@ -37,7 +38,7 @@ func (c *WSConnection) ReadLoop(cd codec.Codec) {
 			return
 		} else {
 			fmt.Println(data)
-			err := c.ProcessMsg(data, cd)
+			err := c.ProcessMsg(data, cd, sess)
 			if err != nil {
 				log.Println("server internal error!")
 				log.Println(err)
@@ -87,9 +88,11 @@ func (c *WSConnection) GetWaitGroup() *sync.WaitGroup {
 	return c.wg
 }
 
-func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec) error {
+func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec, sess *session.Session) error {
 	pack, _ := cd.UnMarshal(msg)
 	log.Printf("msg pack-----router:%s, username: %s, password:%s\n", pack.Router, pack.Msg.(*pbprotocol.LoginReq).Username, pack.Msg.(*pbprotocol.LoginReq).Password)
+	sess.Set(pack.Msg.(*pbprotocol.LoginReq).Username, pack.Msg.(*pbprotocol.LoginReq).Password)
+	fmt.Println(sess.Get(pack.Msg.(*pbprotocol.LoginReq).Username))
 	h, err := svcregister.Get(pack.Router)
 	if err != nil {
 		return err
@@ -105,4 +108,8 @@ func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec) error {
 	}
 	c.SendBuffer <- ack
 	return nil
+}
+
+func (c *WSConnection) Close() {
+	c.Conn.Close()
 }

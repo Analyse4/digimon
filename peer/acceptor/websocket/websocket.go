@@ -1,7 +1,8 @@
 package websocket
 
 import (
-	"digimon/peer/connection/wsconnection"
+	"digimon/peer/session"
+	"digimon/peer/session/wsconnection"
 	"digimon/service"
 	"github.com/gorilla/websocket"
 	"log"
@@ -17,7 +18,7 @@ func (ws *Websocket) Accept(s service.Service) {
 		log.Fatalln(err)
 	}
 
-	cm, err := s.GetConnManager()
+	sm, err := s.GetSessionManager()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -31,8 +32,8 @@ func (ws *Websocket) Accept(s service.Service) {
 			log.Fatalln(err)
 		}
 
-		cm.Add(wsconnection.NewConnection(c))
-		log.Printf("new ws connection %d!", cm.GetCurrentConnID())
+		sm.Add(session.New(wsconnection.NewConnection(c)))
+		log.Printf("new ws connection %d!", sm.GetCurrentConnID())
 	})
 
 	err = http.ListenAndServe(urlObj.Host, nil)

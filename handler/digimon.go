@@ -3,7 +3,7 @@ package handler
 import (
 	"digimon/pbprotocol"
 	"digimon/peer/acceptor"
-	"digimon/peer/connmanager"
+	"digimon/peer/sessionmanager"
 	"digimon/svcregister"
 	"fmt"
 	"github.com/golang/glog"
@@ -16,10 +16,10 @@ var (
 )
 
 type Digimon struct {
-	Name        string
-	Addr        string
-	Acceptor    acceptor.Acceptor
-	ConnManager *connmanager.ConnManager
+	Name           string
+	Addr           string
+	Acceptor       acceptor.Acceptor
+	SessionManager *sessionmanager.SessionManager
 }
 
 func (dgm *Digimon) Start() {
@@ -36,17 +36,17 @@ func (dgm *Digimon) Init(name, codecTyp, acceptorTyp, addr string) error {
 	dgm.Name = name
 	dgm.Addr = addr
 	dgm.Acceptor, _ = acceptor.Get(acceptorTyp)
-	dgm.ConnManager = connmanager.New(codecTyp)
+	dgm.SessionManager = sessionmanager.New(codecTyp)
 	dgm.Register()
 	fmt.Println(svcregister.SVCRegister)
 	return nil
 }
 
-func (dgm *Digimon) GetConnManager() (*connmanager.ConnManager, error) {
-	if dgm.ConnManager == nil {
+func (dgm *Digimon) GetSessionManager() (*sessionmanager.SessionManager, error) {
+	if dgm.SessionManager == nil {
 		return nil, fmt.Errorf("connection manager is not allowcated!")
 	}
-	return dgm.ConnManager, nil
+	return dgm.SessionManager, nil
 }
 
 func (dgm *Digimon) Register() {
