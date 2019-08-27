@@ -2,7 +2,6 @@ package wsconnection
 
 import (
 	"digimon/codec"
-	"digimon/pbprotocol"
 	"digimon/peer/session"
 	"digimon/svcregister"
 	"fmt"
@@ -90,15 +89,12 @@ func (c *WSConnection) GetWaitGroup() *sync.WaitGroup {
 
 func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec, sess *session.Session) error {
 	pack, _ := cd.UnMarshal(msg)
-	log.Printf("msg pack-----router:%s, username: %s, password:%s\n", pack.Router, pack.Msg.(*pbprotocol.LoginReq).Username, pack.Msg.(*pbprotocol.LoginReq).Password)
-	sess.Set(pack.Msg.(*pbprotocol.LoginReq).Username, pack.Msg.(*pbprotocol.LoginReq).Password)
-	fmt.Println(sess.Get(pack.Msg.(*pbprotocol.LoginReq).Username))
 	h, err := svcregister.Get(pack.Router)
 	if err != nil {
 		return err
 	}
 	f := h.Func
-	rv := f.Func.Call([]reflect.Value{h.Receiver, reflect.ValueOf(pack.Msg)})
+	rv := f.Func.Call([]reflect.Value{h.Receiver, reflect.ValueOf(sess), reflect.ValueOf(pack.Msg)})
 	if rv[1].Interface() != nil {
 		fmt.Println(rv[1].Interface().(error))
 	}

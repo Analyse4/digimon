@@ -5,8 +5,8 @@ import (
 	"digimon/svcregister"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"log"
 	"reflect"
-	"traefik/log"
 )
 
 type Pack struct {

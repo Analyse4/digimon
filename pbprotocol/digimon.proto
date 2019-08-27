@@ -6,12 +6,24 @@ message MsgPack {
     bytes data = 2;
 }
 
+message BaseAck {
+    int64 Result = 1;
+    string Msg = 2;
+}
+
 message LoginReq {
+
+    enum LoginType {
+        Visitor = 0;
+        PassWord = 1;
+    }
+
     string username = 1;
     string password = 2;
+    LoginType type = 3;
 }
 
 message LoginAck {
-    int64 result = 1;
-    string message = 2;
+    BaseAck base = 1;
+    string nickname = 2;
 }
