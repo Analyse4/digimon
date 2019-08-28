@@ -12,6 +12,7 @@ import (
 	"sync"
 )
 
+//TODO: buffer size should bigger
 const SENDBUFFERSIZE = 100
 
 var (
