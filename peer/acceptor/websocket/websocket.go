@@ -42,9 +42,6 @@ func (ws *Websocket) Accept(s service.Service) {
 		}
 
 		sm.Add(session.New(wsconnection.NewConnection(c)))
-		log.WithFields(logrus.Fields{
-			"connection_id": sm.GetCurrentConnID(),
-		}).Debug("new connection")
 	})
 
 	log.WithFields(logrus.Fields{

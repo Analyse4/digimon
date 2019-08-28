@@ -4,10 +4,8 @@ import (
 	"digimon/codec"
 	"digimon/logger"
 	"digimon/peer/session"
-	"fmt"
 	"github.com/golang/glog"
 	"github.com/sirupsen/logrus"
-	"strconv"
 	"sync"
 )
 
@@ -73,7 +71,11 @@ func (sm *SessionManager) Add(sess *session.Session) {
 	sm.mu.Unlock()
 	sess.Conn.SetID(sm.currentID)
 	sess.Conn.SetReqDeleteConn(sm.cleanConn)
-	fmt.Println("Total connection num: " + strconv.Itoa(len(sm.sessMap)))
+
+	log.WithFields(logrus.Fields{
+		"current_connection_id": sm.GetCurrentConnID(),
+		"total_connection_num":  len(sm.sessMap),
+	}).Debug("new connection")
 
 	sm.connInit(sess)
 }

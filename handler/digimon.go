@@ -91,16 +91,19 @@ func (dgm *Digimon) Login(sess *session.Session, req *pbprotocol.LoginReq) (*pbp
 	baseack := new(pbprotocol.BaseAck)
 	ack := new(pbprotocol.LoginAck)
 	ack.Base = baseack
+
 	if sess.Get("PLAYERID") == nil {
-		log.Println("new player login")
 		if req.Type == pbprotocol.LoginReq_Visitor {
-			log.Println("login type: visitor")
+			log.WithFields(logrus.Fields{
+				"is_new_player": "true",
+				"login_type":    "visitor",
+			}).Info("player login")
+
 			userinfo, err := player.New()
 			if err != nil {
 				log.Println(err)
 				ack.Base.Result = errorhandler.ERR_SERVICEBUSY
 				ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_SERVICEBUSY)
-				//TODO: close connection
 			}
 			ack.Base.Result = errorhandler.SUCESS
 			ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)

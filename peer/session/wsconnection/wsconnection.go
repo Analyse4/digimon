@@ -2,17 +2,25 @@ package wsconnection
 
 import (
 	"digimon/codec"
+	"digimon/logger"
 	"digimon/peer/session"
 	"digimon/svcregister"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
-	"log"
+	"github.com/sirupsen/logrus"
 	"reflect"
 	"sync"
 )
 
 const SENDBUFFERSIZE = 100
+
+var (
+	log *logrus.Entry
+)
+
+func init() {
+	log = logger.GetLogger().WithField("pkg", "wsconnection")
+}
 
 type WSConnection struct {
 	ID            int64
@@ -31,18 +39,20 @@ func (c *WSConnection) ReadLoop(cd codec.Codec, sess *session.Session) {
 	for {
 		_, data, err := c.Conn.ReadMessage()
 		if err != nil {
-			fmt.Println(err)
+			log.WithFields(logrus.Fields{
+				"connection_id": c.ID,
+			}).Error(err)
+
 			close(c.SendBuffer)
 			c.wg.Done()
 			return
 		} else {
-			fmt.Println(data)
-			err := c.ProcessMsg(data, cd, sess)
-			if err != nil {
-				log.Println("server internal error!")
-				log.Println(err)
-			}
-			//c.SenndBuffer <- data
+			log.WithFields(logrus.Fields{
+				"connection_id": c.ID,
+				"data_len":      len(data),
+			}).Debug("receive data")
+
+			c.ProcessMsg(data, cd, sess)
 		}
 	}
 }
@@ -52,16 +62,24 @@ func (c *WSConnection) WriteLoop() {
 		select {
 		case data, ok := <-c.SendBuffer:
 			if !ok {
-				log.Printf("connection %d write buffer is closed!\n", c.ID)
+				log.WithFields(logrus.Fields{
+					"connection_id": c.ID,
+				}).Debug("write buffer close")
+
 				c.wg.Done()
 				return
 			} else {
-				err := c.Conn.WriteMessage(websocket.TextMessage, data)
+				err := c.Conn.WriteMessage(websocket.BinaryMessage, data)
 				if err != nil {
-					log.Println(err)
+					log.WithFields(logrus.Fields{
+						"connection_id": c.ID,
+					}).Error(err)
 				}
-				log.Printf("connection %d send: ", c.ID)
-				log.Println(data)
+
+				log.WithFields(logrus.Fields{
+					"connection_id": c.ID,
+					"data_len":      len(data),
+				}).Debug("send data")
 			}
 		}
 	}
@@ -87,23 +105,36 @@ func (c *WSConnection) GetWaitGroup() *sync.WaitGroup {
 	return c.wg
 }
 
-func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec, sess *session.Session) error {
-	pack, _ := cd.UnMarshal(msg)
+func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec, sess *session.Session) {
+	pack, err := cd.UnMarshal(msg)
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			"func": "unmarshal",
+		}).Error(err)
+		return
+	}
 	h, err := svcregister.Get(pack.Router)
 	if err != nil {
-		return err
+		log.WithFields(logrus.Fields{
+			"router": pack.Router,
+		}).Error("router not found")
+		return
 	}
 	f := h.Func
 	rv := f.Func.Call([]reflect.Value{h.Receiver, reflect.ValueOf(sess), reflect.ValueOf(pack.Msg)})
 	if rv[1].Interface() != nil {
-		fmt.Println(rv[1].Interface().(error))
+		log.WithFields(logrus.Fields{
+			"func": f.Name,
+		}).Error(rv[1].Interface().(error))
+		return
 	}
 	ack, err := proto.Marshal(rv[0].Interface().(proto.Message))
 	if err != nil {
-		log.Println(err)
+		log.WithFields(logrus.Fields{
+			"func": "marshal",
+		}).Error(err)
 	}
 	c.SendBuffer <- ack
-	return nil
 }
 
 func (c *WSConnection) Close() {
