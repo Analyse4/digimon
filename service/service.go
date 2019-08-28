@@ -4,10 +4,10 @@ import (
 	"digimon/peer/sessionmanager"
 )
 
-//TODO: GetconnManger should return connection interface
 type Service interface {
-	Init(name, codecTyp, acceptorTyp, addr string) error
+	Init(name, codecTyp, acceptorTyp, addr string)
 	Start()
 	GetAddr() string
 	GetSessionManager() (*sessionmanager.SessionManager, error)
+	GetName() string
 }

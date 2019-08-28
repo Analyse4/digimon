@@ -2,15 +2,24 @@ package sessionmanager
 
 import (
 	"digimon/codec"
+	"digimon/logger"
 	"digimon/peer/session"
 	"fmt"
 	"github.com/golang/glog"
-	"log"
+	"github.com/sirupsen/logrus"
 	"strconv"
 	"sync"
 )
 
 const INVALIDID = 0
+
+var (
+	log *logrus.Entry
+)
+
+func init() {
+	log = logger.GetLogger().WithField("pkg", "sessionmanager")
+}
 
 type SessionManager struct {
 	mu        *sync.Mutex
@@ -29,18 +38,28 @@ func New(codecTyp string) *SessionManager {
 		make(chan int64),
 		cd,
 	}
+
+	log.WithFields(logrus.Fields{
+		"codec":                 codecTyp,
+		"current_connection_id": sm.currentID,
+	}).Debug("session manager init successful")
+
 	go func() {
-		log.Println("conn cleaner start!")
+		log.Debug("connection cleaner start")
 		for {
 			select {
 			case connID := <-sm.cleanConn:
 				if connID == INVALIDID {
-					log.Println("Invalid connID")
+					log.WithFields(logrus.Fields{
+						"request_clean_connection_id": connID,
+					}).Warn("invalid connection id")
 				}
 				sess := sm.sessMap[connID]
 				sess.Conn.Close()
 				delete(sm.sessMap, connID)
-				log.Printf("conn %d is deleted", connID)
+				log.WithFields(logrus.Fields{
+					"request_clean_connection_id": connID,
+				}).Debug("connection and related session is cleaned")
 			}
 		}
 	}()

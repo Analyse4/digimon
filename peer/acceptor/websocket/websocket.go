@@ -1,16 +1,25 @@
 package websocket
 
 import (
+	"digimon/logger"
 	"digimon/peer/session"
 	"digimon/peer/session/wsconnection"
 	"digimon/service"
 	"github.com/gorilla/websocket"
-	"log"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"net/url"
 )
 
 type Websocket struct{}
+
+var (
+	log *logrus.Entry
+)
+
+func init() {
+	log = logger.GetLogger().WithField("pkg", "websocket")
+}
 
 func (ws *Websocket) Accept(s service.Service) {
 	urlObj, err := url.Parse(s.GetAddr())
@@ -33,9 +42,15 @@ func (ws *Websocket) Accept(s service.Service) {
 		}
 
 		sm.Add(session.New(wsconnection.NewConnection(c)))
-		log.Printf("new ws connection %d!", sm.GetCurrentConnID())
+		log.WithFields(logrus.Fields{
+			"connection_id": sm.GetCurrentConnID(),
+		}).Debug("new connection")
 	})
 
+	log.WithFields(logrus.Fields{
+		"addr":    urlObj.Host,
+		"service": s.GetName(),
+	}).Info("service start")
 	err = http.ListenAndServe(urlObj.Host, nil)
 	if err != nil {
 		log.Fatalln(err)

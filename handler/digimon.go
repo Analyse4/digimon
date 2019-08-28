@@ -2,6 +2,7 @@ package handler
 
 import (
 	"digimon/errorhandler"
+	"digimon/logger"
 	"digimon/pbprotocol"
 	"digimon/peer/acceptor"
 	"digimon/peer/session"
@@ -9,15 +10,19 @@ import (
 	"digimon/player"
 	"digimon/svcregister"
 	"fmt"
-	"github.com/golang/glog"
-	"log"
+	"github.com/sirupsen/logrus"
 	"reflect"
 	"strings"
 )
 
 var (
 	TYPEOFERROR = reflect.TypeOf((*error)(nil)).Kind()
+	log         *logrus.Entry
 )
+
+func init() {
+	log = logger.GetLogger().WithField("pkg", "handler")
+}
 
 type Digimon struct {
 	Name           string
@@ -34,21 +39,28 @@ func (dgm *Digimon) GetAddr() string {
 	return dgm.Addr
 }
 
-func (dgm *Digimon) Init(name, codecTyp, acceptorTyp, addr string) error {
-	glog.Info("create service successful!")
-	glog.Info("name: " + name + "codec: " + codecTyp + "acceptor: " + acceptorTyp + "addr: " + addr)
+func (dgm *Digimon) Init(name, codecTyp, acceptorTyp, addr string) {
 	dgm.Name = name
 	dgm.Addr = addr
-	dgm.Acceptor, _ = acceptor.Get(acceptorTyp)
+	acp, err := acceptor.Get(acceptorTyp)
+	dgm.Acceptor = acp
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			"acceptor_type": acceptorTyp,
+		}).Fatalln(err)
+	}
 	dgm.SessionManager = sessionmanager.New(codecTyp)
 	dgm.Register()
-	fmt.Println(svcregister.SVCRegister)
-	return nil
+	log.WithFields(logrus.Fields{
+		"name":     "digimon",
+		"addr":     addr,
+		"acceptor": acceptorTyp,
+	}).Debug("init svc successful")
 }
 
 func (dgm *Digimon) GetSessionManager() (*sessionmanager.SessionManager, error) {
 	if dgm.SessionManager == nil {
-		return nil, fmt.Errorf("connection manager is not allowcated!")
+		return nil, fmt.Errorf("session manager haven't allocated")
 	}
 	return dgm.SessionManager, nil
 }
@@ -66,6 +78,12 @@ func (dgm *Digimon) Register() {
 		handler.Func = m
 		handler.Typ = m.Type.In(2)
 		svcregister.Set(index, handler)
+
+		log.WithFields(logrus.Fields{
+			"service": dgm.Name,
+			"router":  index,
+			"func":    handler.Func.Name,
+		}).Debug("service handler register successful")
 	}
 }
 
@@ -105,4 +123,8 @@ func checkHandlerMethod(m reflect.Method) bool {
 		return false
 	}
 	return true
+}
+
+func (dgm *Digimon) GetName() string {
+	return dgm.Name
 }
