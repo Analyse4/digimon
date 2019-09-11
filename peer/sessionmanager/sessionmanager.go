@@ -4,7 +4,6 @@ import (
 	"digimon/codec"
 	"digimon/logger"
 	"digimon/peer/session"
-	"github.com/golang/glog"
 	"github.com/sirupsen/logrus"
 	"sync"
 )
@@ -91,8 +90,12 @@ func (sm *SessionManager) connInit(sess *session.Session) {
 		if sess.Conn.GetReqDeleteConn() != nil {
 			sess.Conn.GetReqDeleteConn() <- sess.Conn.GetID()
 		} else {
-			glog.Error("connection haven't init successful!")
+			log.WithFields(logrus.Fields{
+				"current_connection_id": sess.Conn.GetID(),
+			}).Debug("connection delete chanel miss")
 		}
-		glog.Info("Connection %d\n is closed!", sess.Conn.GetID())
+		log.WithFields(logrus.Fields{
+			"current_connection_id": sess.Conn.GetID(),
+		}).Debug("connection is closed")
 	}()
 }

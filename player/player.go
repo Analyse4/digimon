@@ -1,14 +1,16 @@
 package player
 
+import "digimon/dao/entity"
+
 type Player struct {
 	PlayerId int64
 	NickName string
 }
 
-func New() (*Player, error) {
-	p := new(Player)
+func New() (*entity.PlayerInfo, error) {
+	p := new(entity.PlayerInfo)
 	p.NickName = "Joker"
-	p.PlayerId = 4
+	p.Id = 4
 	//TODO: add player manager
 	return p, nil
 }

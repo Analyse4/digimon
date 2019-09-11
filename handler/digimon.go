@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"digimon/dao"
 	"digimon/errorhandler"
 	"digimon/logger"
 	"digimon/pbprotocol"
@@ -98,17 +99,22 @@ func (dgm *Digimon) Login(sess *session.Session, req *pbprotocol.LoginReq) (*pbp
 				"is_new_player": "true",
 				"login_type":    "visitor",
 			}).Info("player login")
-
-			userinfo, err := player.New()
+			playerInfo, err := player.New()
 			if err != nil {
 				log.Println(err)
 				ack.Base.Result = errorhandler.ERR_SERVICEBUSY
 				ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_SERVICEBUSY)
 			}
+			err = dao.InsertPlayerInfo(playerInfo)
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					"player_id": playerInfo.Id,
+				}).Debug("insert player info failed")
+			}
 			ack.Base.Result = errorhandler.SUCESS
 			ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)
-			ack.Nickname = userinfo.NickName
-			sess.Set("PLAYERID", userinfo.PlayerId)
+			ack.Nickname = playerInfo.NickName
+			sess.Set("PLAYERID", playerInfo.Id)
 			return ack, err
 		}
 	} else {
