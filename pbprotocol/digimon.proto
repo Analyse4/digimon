@@ -23,7 +23,34 @@ message LoginReq {
     LoginType type = 3;
 }
 
+message PlayerInfo {
+    uint64 id = 1;
+    string nickname = 2;
+}
+
 message LoginAck {
     BaseAck base = 1;
-    string nickname = 2;
+    PlayerInfo player_info = 2;
+}
+
+message RoomInfo {
+    enum RoomType {
+        TWO = 0;
+    }
+
+    uint64 room_id = 1;
+    RoomType type = 2;
+    bool IsStart = 3;
+    uint32 current_player_num = 4;
+    repeated PlayerInfo player_infos = 5;
+}
+
+// join room
+message JoinRoomReq {
+
+}
+
+message JoinRoomAck {
+    BaseAck base = 1;
+    RoomInfo room_info = 2;
 }

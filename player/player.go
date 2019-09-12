@@ -1,16 +1,17 @@
 package player
 
-import "digimon/dao/entity"
+import (
+	"digimon/pbprotocol"
+)
 
 type Player struct {
-	PlayerId int64
+	Id       uint64
 	NickName string
 }
 
-func New() (*entity.PlayerInfo, error) {
-	p := new(entity.PlayerInfo)
-	p.NickName = "Joker"
+func New() (*Player, error) {
+	p := new(pbprotocol.PlayerInfo)
+	p.Nickname = "Joker"
 	p.Id = 4
-	//TODO: add player manager
 	return p, nil
 }

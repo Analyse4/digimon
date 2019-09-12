@@ -1,10 +1,10 @@
 package dao
 
 import (
-	"digimon/dao/entity"
+	"digimon/player"
 )
 
-func InsertPlayerInfo(pi *entity.PlayerInfo) error {
+func InsertPlayerInfo(pi *player.Player) error {
 	_, err := db.Exec("insert player_info values (?, ?)", pi.Id, pi.NickName)
 	return err
 }

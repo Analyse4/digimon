@@ -9,6 +9,8 @@ import (
 	"digimon/peer/session"
 	"digimon/peer/sessionmanager"
 	"digimon/player"
+	"digimon/playermanager"
+	"digimon/roommanager"
 	"digimon/svcregister"
 	"fmt"
 	"github.com/sirupsen/logrus"
@@ -30,6 +32,8 @@ type Digimon struct {
 	Addr           string
 	Acceptor       acceptor.Acceptor
 	SessionManager *sessionmanager.SessionManager
+	PlayerManager  *playermanager.PlayerManager
+	RoomManager    *roommanager.RoomManager
 }
 
 func (dgm *Digimon) Start() {
@@ -51,6 +55,8 @@ func (dgm *Digimon) Init(name, codecTyp, acceptorTyp, addr string) {
 		}).Fatalln(err)
 	}
 	dgm.SessionManager = sessionmanager.New(codecTyp)
+	dgm.PlayerManager = playermanager.New()
+	dgm.RoomManager = roommanager.New()
 	dgm.Register()
 	log.WithFields(logrus.Fields{
 		"name":     "digimon",
@@ -100,6 +106,7 @@ func (dgm *Digimon) Login(sess *session.Session, req *pbprotocol.LoginReq) (*pbp
 				"login_type":    "visitor",
 			}).Info("player login")
 			playerInfo, err := player.New()
+			dgm.PlayerManager.Add(playerInfo)
 			if err != nil {
 				log.Println(err)
 				ack.Base.Result = errorhandler.ERR_SERVICEBUSY
@@ -113,12 +120,48 @@ func (dgm *Digimon) Login(sess *session.Session, req *pbprotocol.LoginReq) (*pbp
 			}
 			ack.Base.Result = errorhandler.SUCESS
 			ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)
-			ack.Nickname = playerInfo.NickName
+			ack.PlayerInfo.Nickname = playerInfo.NickName
+			ack.PlayerInfo.Id = playerInfo.Id
 			sess.Set("PLAYERID", playerInfo.Id)
 			return ack, err
 		}
 	} else {
 		log.Println("already login")
+	}
+	return ack, nil
+}
+
+func (dgm *Digimon) JoinGame(sess *session.Session, req *pbprotocol.JoinRoomReq) (*pbprotocol.JoinRoomAck, error) {
+	baseack := new(pbprotocol.BaseAck)
+	ack := new(pbprotocol.JoinRoomAck)
+	ack.Base = baseack
+
+	playerID := sess.Get("PLAYERID")
+	if playerID == nil {
+		logrus.Debug("user not login")
+		ack.Base.Result = errorhandler.ERR_USERNOTLOGIN
+		ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_USERNOTLOGIN)
+		return ack, nil
+	}
+	room := dgm.RoomManager.GetIdleRoom()
+	player, err := dgm.PlayerManager.Get(playerID.(uint64))
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			"player_id": playerID,
+		}).Debug(err)
+	}
+	room.AddPlayer(player)
+	//TODO: dao insert room info
+	//TODO: check room is start, broadcast start game
+
+	ack.Base.Result = errorhandler.SUCESS
+	ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)
+	ack.RoomInfo.RoomId = room.Id
+	ack.RoomInfo.Type = room.Type
+	ack.RoomInfo.CurrentPlayerNum = room.CurrentNum
+	for i, p := range room.PlayerInfos {
+		ack.RoomInfo.PlayerInfos[i].Id = p.Id
+		ack.RoomInfo.PlayerInfos[i].Nickname = p.NickName
 	}
 	return ack, nil
 }
