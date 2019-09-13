@@ -54,3 +54,37 @@ message JoinRoomAck {
     BaseAck base = 1;
     RoomInfo room_info = 2;
 }
+
+enum DigimonIdentity {
+    AGUMON = 0;
+    GREYMON = 1;
+    SKULLGREYMON = 2;
+    WARGREYMON = 3;
+    GABUMON = 4;
+    GARURUMON = 5;
+    WEREGARURUMON = 6;
+    METALGARURUMON = 7;
+    BIYOMON = 8;
+    BIRDRAMON = 9;
+    GARUDAMON = 10;
+    TENTOMON = 11;
+    KABUTERIMON = 12;
+    MEGAKABUTERIMON = 13;
+    PALMON = 14;
+    TOGEMON = 15;
+    LILLYMON = 16;
+    GOMAMON = 17;
+    IKKAKUMON = 18;
+    ZUDOMON = 19;
+    PATAMON = 20;
+    ANGEMON = 21;
+    MAGNAANGEMON = 22;
+    SALAMON = 23;
+    GATOMON = 24;
+    ANGEWOMON = 25;
+}
+
+message StartGameAck {
+    DigimonIdentity identity = 1;
+    RoomInfo room_info = 2;
+}

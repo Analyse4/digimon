@@ -42,3 +42,9 @@ func (r *Room) AddPlayer(p *player.Player) {
 		r.IsStart = true
 	}
 }
+
+func (r *Room) BroadCast(router string, data interface{}) {
+	for _, p := range r.PlayerInfos {
+		p.Send(router, data)
+	}
+}

@@ -14,4 +14,5 @@ type Connection interface {
 	SetReqDeleteConn(chan<- int64)
 	GetWaitGroup() *sync.WaitGroup
 	Close()
+	Send([]byte)
 }

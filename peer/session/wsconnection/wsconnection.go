@@ -129,6 +129,7 @@ func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec, sess *session.Sess
 		}).Error(rv[1].Interface().(error))
 		return
 	}
+	//TODO: use codec marshal
 	ack, err := proto.Marshal(rv[0].Interface().(proto.Message))
 	if err != nil {
 		log.WithFields(logrus.Fields{
@@ -140,4 +141,8 @@ func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec, sess *session.Sess
 
 func (c *WSConnection) Close() {
 	c.Conn.Close()
+}
+
+func (c *WSConnection) Send(data []byte) {
+	c.SendBuffer <- data
 }

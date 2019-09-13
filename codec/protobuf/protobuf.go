@@ -3,6 +3,7 @@ package protobuf
 import (
 	"digimon/pbprotocol"
 	"digimon/svcregister"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"reflect"
 )
@@ -14,8 +15,20 @@ type Pack struct {
 
 type Protobuf struct{}
 
-func (pbcdc *Protobuf) Marshal(msg []byte) error {
-	return nil
+func (pbcdc *Protobuf) Marshal(router string, msg interface{}) ([]byte, error) {
+	m, ok := msg.(proto.Message)
+	if !ok {
+		return nil, fmt.Errorf("invaild data")
+	}
+	data, err := proto.Marshal(m)
+	if err != nil {
+		return nil, err
+	}
+	bm := new(pbprotocol.MsgPack)
+	bm.Router = router
+	bm.Data = data
+	ack, err := proto.Marshal(bm)
+	return ack, nil
 }
 
 func (pbcdc *Protobuf) UnMarshal(msg []byte) (*Pack, error) {

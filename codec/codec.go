@@ -5,7 +5,7 @@ import (
 )
 
 type Codec interface {
-	Marshal([]byte) error
+	Marshal(string, interface{}) ([]byte, error)
 	UnMarshal([]byte) (*protobuf.Pack, error)
 }
 

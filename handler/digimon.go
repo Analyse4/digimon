@@ -105,24 +105,24 @@ func (dgm *Digimon) Login(sess *session.Session, req *pbprotocol.LoginReq) (*pbp
 				"is_new_player": "true",
 				"login_type":    "visitor",
 			}).Info("player login")
-			playerInfo, err := player.New()
-			dgm.PlayerManager.Add(playerInfo)
+			player, err := player.New(sess)
+			dgm.PlayerManager.Add(player)
 			if err != nil {
 				log.Println(err)
 				ack.Base.Result = errorhandler.ERR_SERVICEBUSY
 				ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_SERVICEBUSY)
 			}
-			err = dao.InsertPlayerInfo(playerInfo)
+			err = dao.InsertPlayerInfo(player)
 			if err != nil {
 				log.WithFields(logrus.Fields{
-					"player_id": playerInfo.Id,
+					"player_id": player.Id,
 				}).Debug("insert player info failed")
 			}
 			ack.Base.Result = errorhandler.SUCESS
 			ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)
-			ack.PlayerInfo.Nickname = playerInfo.NickName
-			ack.PlayerInfo.Id = playerInfo.Id
-			sess.Set("PLAYERID", playerInfo.Id)
+			ack.PlayerInfo.Nickname = player.NickName
+			ack.PlayerInfo.Id = player.Id
+			sess.Set("PLAYERID", player.Id)
 			return ack, err
 		}
 	} else {
@@ -152,13 +152,28 @@ func (dgm *Digimon) JoinGame(sess *session.Session, req *pbprotocol.JoinRoomReq)
 	}
 	room.AddPlayer(player)
 	//TODO: dao insert room info
-	//TODO: check room is start, broadcast start game
+	dao.InsertRoomInfo(room)
+	if room.IsStart {
+		ack := new(pbprotocol.StartGameAck)
+		ack.Identity = pbprotocol.DigimonIdentity_PALMON
+		ack.RoomInfo.RoomId = room.Id
+		ack.RoomInfo.Type = room.Type
+		ack.RoomInfo.CurrentPlayerNum = room.CurrentNum
+		ack.RoomInfo.IsStart = room.IsStart
+		for i, p := range room.PlayerInfos {
+			ack.RoomInfo.PlayerInfos[i].Id = p.Id
+			ack.RoomInfo.PlayerInfos[i].Nickname = p.NickName
+		}
+
+		go room.BroadCast("digimon.startgame", ack)
+	}
 
 	ack.Base.Result = errorhandler.SUCESS
 	ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)
 	ack.RoomInfo.RoomId = room.Id
 	ack.RoomInfo.Type = room.Type
 	ack.RoomInfo.CurrentPlayerNum = room.CurrentNum
+	ack.RoomInfo.IsStart = room.IsStart
 	for i, p := range room.PlayerInfos {
 		ack.RoomInfo.PlayerInfos[i].Id = p.Id
 		ack.RoomInfo.PlayerInfos[i].Nickname = p.NickName
