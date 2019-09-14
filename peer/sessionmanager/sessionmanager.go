@@ -53,10 +53,16 @@ func New(codecTyp string) *SessionManager {
 				}
 				sess := sm.sessMap[connID]
 				sess.Conn.Close()
-				delete(sm.sessMap, connID)
+
 				log.WithFields(logrus.Fields{
-					"request_clean_connection_id": connID,
-				}).Debug("connection and related session is cleaned")
+					"connection_id": connID,
+				}).Debug("connection is closed")
+
+				delete(sm.sessMap, connID)
+
+				log.WithFields(logrus.Fields{
+					"session_id": connID,
+				}).Debug("session is cleaned")
 			}
 		}
 	}()
@@ -92,10 +98,8 @@ func (sm *SessionManager) connInit(sess *session.Session) {
 		} else {
 			log.WithFields(logrus.Fields{
 				"current_connection_id": sess.Conn.GetID(),
-			}).Debug("connection delete chanel miss")
+				"missing_item":          "request_delete_channel",
+			}).Debug("connection init error")
 		}
-		log.WithFields(logrus.Fields{
-			"current_connection_id": sess.Conn.GetID(),
-		}).Debug("connection is closed")
 	}()
 }

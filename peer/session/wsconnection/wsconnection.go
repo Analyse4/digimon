@@ -42,10 +42,15 @@ func (c *WSConnection) ReadLoop(cd codec.Codec, sess *session.Session) {
 		if err != nil {
 			log.WithFields(logrus.Fields{
 				"connection_id": c.ID,
-			}).Error(err)
+			}).Debug(err)
 
 			close(c.SendBuffer)
 			c.wg.Done()
+
+			log.WithFields(logrus.Fields{
+				"connection_id": c.ID,
+			}).Debug("read loop finished")
+
 			return
 		} else {
 			log.WithFields(logrus.Fields{
@@ -63,11 +68,12 @@ func (c *WSConnection) WriteLoop() {
 		select {
 		case data, ok := <-c.SendBuffer:
 			if !ok {
+				c.wg.Done()
+
 				log.WithFields(logrus.Fields{
 					"connection_id": c.ID,
-				}).Debug("write buffer close")
+				}).Debug("write loop finished")
 
-				c.wg.Done()
 				return
 			} else {
 				err := c.Conn.WriteMessage(websocket.BinaryMessage, data)
