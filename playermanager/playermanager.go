@@ -1,10 +1,20 @@
 package playermanager
 
 import (
+	"digimon/logger"
 	"digimon/player"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"sync"
 )
+
+var (
+	log *logrus.Entry
+)
+
+func init() {
+	log = logger.GetLogger().WithField("pkg", "playermanager")
+}
 
 type PlayerManager struct {
 	Mu        *sync.Mutex
@@ -25,6 +35,11 @@ func (pm *PlayerManager) Add(p *player.Player) error {
 		return fmt.Errorf("duplicate player")
 	}
 	pm.PlayerMap[p.Id] = p
+
+	log.WithFields(logrus.Fields{
+		"player_id":        p.Id,
+		"total_player_num": len(pm.PlayerMap),
+	}).Debug("add player successful")
 	return nil
 }
 

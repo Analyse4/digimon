@@ -98,13 +98,14 @@ func (dgm *Digimon) Login(sess *session.Session, req *pbprotocol.LoginReq) (*pbp
 	baseack := new(pbprotocol.BaseAck)
 	ack := new(pbprotocol.LoginAck)
 	ack.Base = baseack
+	ack.PlayerInfo = new(pbprotocol.PlayerInfo)
 
 	if sess.Get("PLAYERID") == nil {
 		if req.Type == pbprotocol.LoginReq_Visitor {
 			log.WithFields(logrus.Fields{
 				"is_new_player": "true",
 				"login_type":    "visitor",
-			}).Info("player login")
+			}).Info("new player login")
 			player, err := player.New(sess)
 			dgm.PlayerManager.Add(player)
 			if err != nil {

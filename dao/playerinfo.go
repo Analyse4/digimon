@@ -4,7 +4,7 @@ import (
 	"digimon/player"
 )
 
-func InsertPlayerInfo(pi *player.Player) error {
-	_, err := db.Exec("insert player_info values (?, ?)", pi.Id, pi.NickName)
+func InsertPlayerInfo(p *player.Player) error {
+	_, err := db.Exec("insert player_info values (?, ?)", p.Id, p.NickName)
 	return err
 }
