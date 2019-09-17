@@ -5,7 +5,6 @@ import (
 	"digimon/logger"
 	"digimon/peer/session"
 	"digimon/svcregister"
-	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 	"reflect"
@@ -136,7 +135,8 @@ func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec, sess *session.Sess
 		return
 	}
 	//TODO: use codec marshal
-	ack, err := proto.Marshal(rv[0].Interface().(proto.Message))
+	//ack, err := proto.Marshal(rv[0].Interface().(proto.Message))
+	ack, _ := cd.Marshal(pack.Router, rv[0].Interface())
 	if err != nil {
 		log.WithFields(logrus.Fields{
 			"func": "marshal",
