@@ -3,6 +3,8 @@ package player
 import (
 	"digimon/codec"
 	"digimon/peer/session"
+	"digimon/utils/randomid"
+	"github.com/Pallinder/go-randomdata"
 )
 
 type Player struct {
@@ -13,8 +15,8 @@ type Player struct {
 
 func New(sess *session.Session) (*Player, error) {
 	p := new(Player)
-	p.NickName = "Joker"
-	p.Id = 4
+	p.NickName = randomdata.FullName(randomdata.Male)
+	p.Id = randomid.GetUniqueId()
 	p.Sess = sess
 	return p, nil
 }
