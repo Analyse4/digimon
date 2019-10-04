@@ -91,6 +91,9 @@ func (dgm *Digimon) CleanerListen() {
 					rm, err = dgm.RoomManager.Get(roomID)
 					if err == nil {
 						rm.DeletePlayer(cmt.PlayerID)
+						if rm.CurrentNum == 0 {
+							dgm.RoomManager.Delete(roomID)
+						}
 					}
 					dgm.PlayerManager.Delete(cmt.PlayerID)
 				}

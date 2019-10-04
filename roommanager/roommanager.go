@@ -48,3 +48,9 @@ func (rm *RoomManager) Get(id uint64) (*room.Room, error) {
 	}
 	return room, nil
 }
+
+func (rm *RoomManager) Delete(id uint64) {
+	rm.Mu.Lock()
+	defer rm.Mu.Unlock()
+	delete(rm.RoomMap, id)
+}
