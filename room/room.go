@@ -22,6 +22,7 @@ type Room struct {
 	PlayerInfos []*player.Player
 }
 
+// temporary only have two-player room
 func New() *Room {
 	return &Room{
 		Mu:          new(sync.Mutex),
@@ -29,11 +30,12 @@ func New() *Room {
 		IsStart:     false,
 		Type:        pbprotocol.RoomInfo_TWO,
 		CurrentNum:  0,
-		PlayerInfos: nil,
+		PlayerInfos: make([]*player.Player, 0),
 	}
 }
 
 func (r *Room) AddPlayer(p *player.Player) {
+	p.RoomID = r.Id
 	r.Mu.Lock()
 	defer r.Mu.Unlock()
 	r.PlayerInfos = append(r.PlayerInfos, p)

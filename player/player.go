@@ -10,6 +10,7 @@ import (
 type Player struct {
 	Id       uint64
 	NickName string
+	RoomID   uint64
 	Sess     *session.Session
 }
 

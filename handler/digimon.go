@@ -27,6 +27,11 @@ func init() {
 	log = logger.GetLogger().WithField("pkg", "handler")
 }
 
+type CleanerMeta struct {
+	ConnID   int64
+	PlayerID uint64
+}
+
 type Digimon struct {
 	Name           string
 	Addr           string
@@ -34,6 +39,7 @@ type Digimon struct {
 	SessionManager *sessionmanager.SessionManager
 	PlayerManager  *playermanager.PlayerManager
 	RoomManager    *roommanager.RoomManager
+	Cleaner        chan *CleanerMeta
 }
 
 func (dgm *Digimon) Start() {
@@ -132,10 +138,12 @@ func (dgm *Digimon) Login(sess *session.Session, req *pbprotocol.LoginReq) (*pbp
 	return ack, nil
 }
 
-func (dgm *Digimon) JoinGame(sess *session.Session, req *pbprotocol.JoinRoomReq) (*pbprotocol.JoinRoomAck, error) {
+func (dgm *Digimon) JoinRoom(sess *session.Session, req *pbprotocol.JoinRoomReq) (*pbprotocol.JoinRoomAck, error) {
 	baseack := new(pbprotocol.BaseAck)
+	roominfo := new(pbprotocol.RoomInfo)
 	ack := new(pbprotocol.JoinRoomAck)
 	ack.Base = baseack
+	ack.RoomInfo = roominfo
 
 	playerID := sess.Get("PLAYERID")
 	if playerID == nil {
@@ -156,6 +164,8 @@ func (dgm *Digimon) JoinGame(sess *session.Session, req *pbprotocol.JoinRoomReq)
 	dao.InsertRoomInfo(room)
 	if room.IsStart {
 		ack := new(pbprotocol.StartGameAck)
+		roominfo := new(pbprotocol.RoomInfo)
+		ack.RoomInfo = roominfo
 		ack.Identity = pbprotocol.DigimonIdentity_PALMON
 		ack.RoomInfo.RoomId = room.Id
 		ack.RoomInfo.Type = room.Type
@@ -175,9 +185,11 @@ func (dgm *Digimon) JoinGame(sess *session.Session, req *pbprotocol.JoinRoomReq)
 	ack.RoomInfo.Type = room.Type
 	ack.RoomInfo.CurrentPlayerNum = room.CurrentNum
 	ack.RoomInfo.IsStart = room.IsStart
-	for i, p := range room.PlayerInfos {
-		ack.RoomInfo.PlayerInfos[i].Id = p.Id
-		ack.RoomInfo.PlayerInfos[i].Nickname = p.NickName
+	for _, p := range room.PlayerInfos {
+		tmpPlayerInfo := new(pbprotocol.PlayerInfo)
+		tmpPlayerInfo.Id = p.Id
+		tmpPlayerInfo.Nickname = p.NickName
+		ack.RoomInfo.PlayerInfos = append(ack.RoomInfo.PlayerInfos, tmpPlayerInfo)
 	}
 	return ack, nil
 }

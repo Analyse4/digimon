@@ -94,6 +94,7 @@ func (sm *SessionManager) connInit(sess *session.Session) {
 	go func() {
 		sess.Conn.GetWaitGroup().Wait()
 		if sess.Conn.GetReqDeleteConn() != nil {
+			playerID := sess.Get("PLAYERID")
 			sess.Conn.GetReqDeleteConn() <- sess.Conn.GetID()
 		} else {
 			log.WithFields(logrus.Fields{
