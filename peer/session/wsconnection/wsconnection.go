@@ -3,6 +3,7 @@ package wsconnection
 import (
 	"digimon/codec"
 	"digimon/logger"
+	"digimon/peer/cleaner"
 	"digimon/peer/session"
 	"digimon/svcregister"
 	"github.com/gorilla/websocket"
@@ -26,7 +27,7 @@ type WSConnection struct {
 	ID            int64
 	Conn          *websocket.Conn
 	wg            *sync.WaitGroup
-	ReqDeleteConn chan<- int64
+	ReqDeleteConn chan<- *cleaner.CleanerMeta
 	SendBuffer    chan []byte
 }
 
@@ -99,11 +100,11 @@ func (c *WSConnection) GetID() int64 {
 	return c.ID
 }
 
-func (c *WSConnection) GetReqDeleteConn() chan<- int64 {
+func (c *WSConnection) GetReqDeleteConn() chan<- *cleaner.CleanerMeta {
 	return c.ReqDeleteConn
 }
 
-func (c *WSConnection) SetReqDeleteConn(srd chan<- int64) {
+func (c *WSConnection) SetReqDeleteConn(srd chan<- *cleaner.CleanerMeta) {
 	c.ReqDeleteConn = srd
 }
 

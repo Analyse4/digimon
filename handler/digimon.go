@@ -6,10 +6,12 @@ import (
 	"digimon/logger"
 	"digimon/pbprotocol"
 	"digimon/peer/acceptor"
+	"digimon/peer/cleaner"
 	"digimon/peer/session"
 	"digimon/peer/sessionmanager"
 	"digimon/player"
 	"digimon/playermanager"
+	"digimon/room"
 	"digimon/roommanager"
 	"digimon/svcregister"
 	"fmt"
@@ -17,6 +19,8 @@ import (
 	"reflect"
 	"strings"
 )
+
+const INVALIDID = 0
 
 var (
 	TYPEOFERROR = reflect.TypeOf((*error)(nil)).Kind()
@@ -27,11 +31,6 @@ func init() {
 	log = logger.GetLogger().WithField("pkg", "handler")
 }
 
-type CleanerMeta struct {
-	ConnID   int64
-	PlayerID uint64
-}
-
 type Digimon struct {
 	Name           string
 	Addr           string
@@ -39,7 +38,7 @@ type Digimon struct {
 	SessionManager *sessionmanager.SessionManager
 	PlayerManager  *playermanager.PlayerManager
 	RoomManager    *roommanager.RoomManager
-	Cleaner        chan *CleanerMeta
+	Cleaner        chan *cleaner.CleanerMeta
 }
 
 func (dgm *Digimon) Start() {
@@ -63,12 +62,54 @@ func (dgm *Digimon) Init(name, codecTyp, acceptorTyp, addr string) {
 	dgm.SessionManager = sessionmanager.New(codecTyp)
 	dgm.PlayerManager = playermanager.New()
 	dgm.RoomManager = roommanager.New()
+	dgm.Cleaner = make(chan *cleaner.CleanerMeta, 100)
+	dgm.SessionManager.SetCleaner(dgm.Cleaner)
 	dgm.Register()
+	go dgm.CleanerListen()
 	log.WithFields(logrus.Fields{
 		"name":     "digimon",
 		"addr":     addr,
 		"acceptor": acceptorTyp,
 	}).Debug("init svc successful")
+}
+
+func (dgm *Digimon) CleanerListen() {
+	log.Debug("connection cleaner start")
+	for {
+		select {
+		case cmt := <-dgm.Cleaner:
+			if cmt.ConnID == INVALIDID {
+				log.WithFields(logrus.Fields{
+					"request_clean_connection_id": cmt.ConnID,
+				}).Warn("invalid connection id")
+			}
+			var rm *room.Room
+			if cmt.PlayerID != 0 {
+				player, err := dgm.PlayerManager.Get(cmt.PlayerID)
+				if err == nil {
+					roomID := player.RoomID
+					rm, err = dgm.RoomManager.Get(roomID)
+					if err == nil {
+						rm.DeletePlayer(cmt.PlayerID)
+					}
+					dgm.PlayerManager.Delete(cmt.PlayerID)
+				}
+			}
+			sess := dgm.SessionManager.Get(cmt.ConnID)
+			sess.Conn.Close()
+			dgm.SessionManager.Delete(cmt.ConnID)
+
+			log.WithFields(logrus.Fields{
+				"room_id":           rm.Id,
+				"player_id":         cmt.PlayerID,
+				"session_id":        cmt.ConnID,
+				"connection_id":     cmt.ConnID,
+				"total_player":      len(dgm.PlayerManager.PlayerMap),
+				"total_room":        len(dgm.RoomManager.RoomMap),
+				"total_room_player": rm.CurrentNum,
+			}).Debug("connection resource is released")
+		}
+	}
 }
 
 func (dgm *Digimon) GetSessionManager() (*sessionmanager.SessionManager, error) {
@@ -152,7 +193,7 @@ func (dgm *Digimon) JoinRoom(sess *session.Session, req *pbprotocol.JoinRoomReq)
 		ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_USERNOTLOGIN)
 		return ack, nil
 	}
-	room := dgm.RoomManager.GetIdleRoom()
+	room, isNew := dgm.RoomManager.GetIdleRoom()
 	player, err := dgm.PlayerManager.Get(playerID.(uint64))
 	if err != nil {
 		log.WithFields(logrus.Fields{
@@ -160,8 +201,10 @@ func (dgm *Digimon) JoinRoom(sess *session.Session, req *pbprotocol.JoinRoomReq)
 		}).Debug(err)
 	}
 	room.AddPlayer(player)
-	//TODO: dao insert room info
-	dao.InsertRoomInfo(room)
+	//TODO: dao update old room info
+	if isNew {
+		dao.InsertRoomInfo(room)
+	}
 	if room.IsStart {
 		ack := new(pbprotocol.StartGameAck)
 		roominfo := new(pbprotocol.RoomInfo)
@@ -171,9 +214,11 @@ func (dgm *Digimon) JoinRoom(sess *session.Session, req *pbprotocol.JoinRoomReq)
 		ack.RoomInfo.Type = room.Type
 		ack.RoomInfo.CurrentPlayerNum = room.CurrentNum
 		ack.RoomInfo.IsStart = room.IsStart
-		for i, p := range room.PlayerInfos {
-			ack.RoomInfo.PlayerInfos[i].Id = p.Id
-			ack.RoomInfo.PlayerInfos[i].Nickname = p.NickName
+		for _, p := range room.PlayerInfos {
+			tmpPlayerInfo := new(pbprotocol.PlayerInfo)
+			tmpPlayerInfo.Id = p.Id
+			tmpPlayerInfo.Nickname = p.NickName
+			ack.RoomInfo.PlayerInfos = append(ack.RoomInfo.PlayerInfos, tmpPlayerInfo)
 		}
 
 		go room.BroadCast("digimon.startgame", ack)
@@ -191,6 +236,12 @@ func (dgm *Digimon) JoinRoom(sess *session.Session, req *pbprotocol.JoinRoomReq)
 		tmpPlayerInfo.Nickname = p.NickName
 		ack.RoomInfo.PlayerInfos = append(ack.RoomInfo.PlayerInfos, tmpPlayerInfo)
 	}
+
+	log.WithFields(logrus.Fields{
+		"room_id":            room.Id,
+		"current_player_num": room.CurrentNum,
+	}).Debug("room info")
+
 	return ack, nil
 }
 

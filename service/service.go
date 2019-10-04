@@ -10,4 +10,5 @@ type Service interface {
 	GetAddr() string
 	GetSessionManager() (*sessionmanager.SessionManager, error)
 	GetName() string
+	CleanerListen()
 }

@@ -3,6 +3,7 @@ package sessionmanager
 import (
 	"digimon/codec"
 	"digimon/logger"
+	"digimon/peer/cleaner"
 	"digimon/peer/session"
 	"github.com/sirupsen/logrus"
 	"sync"
@@ -22,7 +23,7 @@ type SessionManager struct {
 	mu        *sync.Mutex
 	sessMap   map[int64]*session.Session
 	currentID int64
-	cleanConn chan int64
+	cleanConn chan *cleaner.CleanerMeta
 	codec     codec.Codec
 }
 
@@ -32,7 +33,7 @@ func New(codecTyp string) *SessionManager {
 		new(sync.Mutex),
 		make(map[int64]*session.Session),
 		INVALIDID,
-		make(chan int64),
+		nil,
 		cd,
 	}
 
@@ -41,31 +42,31 @@ func New(codecTyp string) *SessionManager {
 		"current_connection_id": sm.currentID,
 	}).Debug("session manager init successful")
 
-	go func() {
-		log.Debug("connection cleaner start")
-		for {
-			select {
-			case connID := <-sm.cleanConn:
-				if connID == INVALIDID {
-					log.WithFields(logrus.Fields{
-						"request_clean_connection_id": connID,
-					}).Warn("invalid connection id")
-				}
-				sess := sm.sessMap[connID]
-				sess.Conn.Close()
-
-				log.WithFields(logrus.Fields{
-					"connection_id": connID,
-				}).Debug("connection is closed")
-
-				delete(sm.sessMap, connID)
-
-				log.WithFields(logrus.Fields{
-					"session_id": connID,
-				}).Debug("session is cleaned")
-			}
-		}
-	}()
+	//go func() {
+	//	log.Debug("connection cleaner start")
+	//	for {
+	//		select {
+	//		case connID := <-sm.cleanConn:
+	//			if connID == INVALIDID {
+	//				log.WithFields(logrus.Fields{
+	//					"request_clean_connection_id": connID,
+	//				}).Warn("invalid connection id")
+	//			}
+	//			sess := sm.sessMap[connID]
+	//			sess.Conn.Close()
+	//
+	//			log.WithFields(logrus.Fields{
+	//				"connection_id": connID,
+	//			}).Debug("connection is closed")
+	//
+	//			delete(sm.sessMap, connID)
+	//
+	//			log.WithFields(logrus.Fields{
+	//				"session_id": connID,
+	//			}).Debug("session is cleaned")
+	//		}
+	//	}
+	//}()
 	return sm
 }
 
@@ -94,8 +95,11 @@ func (sm *SessionManager) connInit(sess *session.Session) {
 	go func() {
 		sess.Conn.GetWaitGroup().Wait()
 		if sess.Conn.GetReqDeleteConn() != nil {
-			playerID := sess.Get("PLAYERID")
-			sess.Conn.GetReqDeleteConn() <- sess.Conn.GetID()
+			playerID, _ := sess.Get("PLAYERID").(uint64)
+			cleanerMeta := new(cleaner.CleanerMeta)
+			cleanerMeta.ConnID = sess.Conn.GetID()
+			cleanerMeta.PlayerID = playerID
+			sess.Conn.GetReqDeleteConn() <- cleanerMeta
 		} else {
 			log.WithFields(logrus.Fields{
 				"current_connection_id": sess.Conn.GetID(),
@@ -103,4 +107,20 @@ func (sm *SessionManager) connInit(sess *session.Session) {
 			}).Debug("connection init error")
 		}
 	}()
+}
+
+func (sm *SessionManager) SetCleaner(cleaner chan *cleaner.CleanerMeta) {
+	sm.cleanConn = cleaner
+}
+
+func (sm *SessionManager) Get(id int64) *session.Session {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	return sm.sessMap[id]
+}
+
+func (sm *SessionManager) Delete(id int64) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	delete(sm.sessMap, id)
 }

@@ -52,3 +52,9 @@ func (pm *PlayerManager) Get(id uint64) (*player.Player, error) {
 	}
 	return p, nil
 }
+
+func (pm *PlayerManager) Delete(id uint64) {
+	pm.Mu.Lock()
+	defer pm.Mu.Unlock()
+	delete(pm.PlayerMap, id)
+}
