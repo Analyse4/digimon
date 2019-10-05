@@ -16,8 +16,11 @@ import (
 	"digimon/svcregister"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"os"
+	"os/signal"
 	"reflect"
 	"strings"
+	"syscall"
 )
 
 const INVALIDID = 0
@@ -39,6 +42,7 @@ type Digimon struct {
 	PlayerManager  *playermanager.PlayerManager
 	RoomManager    *roommanager.RoomManager
 	Cleaner        chan *cleaner.CleanerMeta
+	SignalCapture  chan os.Signal
 }
 
 func (dgm *Digimon) Start() {
@@ -64,8 +68,11 @@ func (dgm *Digimon) Init(name, codecTyp, acceptorTyp, addr string) {
 	dgm.RoomManager = roommanager.New()
 	dgm.Cleaner = make(chan *cleaner.CleanerMeta, 100)
 	dgm.SessionManager.SetCleaner(dgm.Cleaner)
+	dgm.SignalCapture = make(chan os.Signal, 1)
+	signal.Notify(dgm.SignalCapture, syscall.SIGINT, syscall.SIGTERM)
 	dgm.Register()
 	go dgm.CleanerListen()
+	go dgm.signalHandler()
 	log.WithFields(logrus.Fields{
 		"name":     "digimon",
 		"addr":     addr,
@@ -115,6 +122,16 @@ func (dgm *Digimon) CleanerListen() {
 				"total_room_player": rm.CurrentNum,
 			}).Debug("connection resource is released")
 		}
+	}
+}
+
+func (dgm *Digimon) signalHandler() {
+	_ = <-dgm.SignalCapture
+	dgm.RoomManager.Mu.Lock()
+	defer dgm.RoomManager.Mu.Unlock()
+	for _, r := range dgm.RoomManager.RoomMap {
+		r.IsOpen = false
+		dao.UpdateRoomInfo(r)
 	}
 }
 
