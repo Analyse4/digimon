@@ -11,8 +11,14 @@ const (
 )
 
 //TODO: rewrite room id generate
-var currentRoomID uint64
+var (
+	mu            *sync.Mutex = new(sync.Mutex)
+	currentRoomID uint64
+)
 
+// IsStart: game is start or not
+// NewSeated: new joined player's seat num
+// IsOpen: room is open or not
 type Room struct {
 	Mu          *sync.Mutex
 	Id          uint64
@@ -20,18 +26,26 @@ type Room struct {
 	Type        pbprotocol.RoomInfo_RoomType
 	CurrentNum  uint32
 	PlayerInfos []*player.Player
+	NewSeated   int8
+	IsOpen      bool
 }
 
 // temporary only have two-player room
 func New() *Room {
-	return &Room{
+	r := &Room{
 		Mu:          new(sync.Mutex),
 		Id:          currentRoomID + 1,
 		IsStart:     false,
 		Type:        pbprotocol.RoomInfo_TWO,
 		CurrentNum:  0,
 		PlayerInfos: make([]*player.Player, 1),
+		NewSeated:   -1,
+		IsOpen:      true,
 	}
+	mu.Lock()
+	currentRoomID = r.Id
+	mu.Unlock()
+	return r
 }
 
 func (r *Room) AddPlayer(p *player.Player) {
@@ -44,8 +58,10 @@ func (r *Room) AddPlayer(p *player.Player) {
 		r.PlayerInfos[0].NickName = p.NickName
 		r.PlayerInfos[0].RoomID = p.RoomID
 		r.PlayerInfos[0].Sess = p.Sess
+		r.NewSeated = 0
 	} else {
 		r.PlayerInfos = append(r.PlayerInfos, p)
+		r.NewSeated = int8(len(r.PlayerInfos) - 1)
 	}
 	r.CurrentNum++
 	if r.CurrentNum == 2 {

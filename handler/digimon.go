@@ -91,7 +91,10 @@ func (dgm *Digimon) CleanerListen() {
 					rm, err = dgm.RoomManager.Get(roomID)
 					if err == nil {
 						rm.DeletePlayer(cmt.PlayerID)
+						dao.UpdateRoomInfo(rm)
 						if rm.CurrentNum == 0 {
+							rm.IsOpen = false
+							dao.UpdateRoomInfo(rm)
 							dgm.RoomManager.Delete(roomID)
 						}
 					}
@@ -207,6 +210,8 @@ func (dgm *Digimon) JoinRoom(sess *session.Session, req *pbprotocol.JoinRoomReq)
 	//TODO: dao update old room info
 	if isNew {
 		dao.InsertRoomInfo(room)
+	} else {
+		dao.UpdateRoomInfo(room)
 	}
 	if room.IsStart {
 		ack := new(pbprotocol.StartGameAck)
