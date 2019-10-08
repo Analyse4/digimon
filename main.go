@@ -4,6 +4,7 @@ import (
 	"digimon/config"
 	"digimon/dao"
 	"digimon/handler"
+	"digimon/prometheus"
 	_ "digimon/svcregister"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/urfave/cli"
@@ -31,6 +32,7 @@ func main() {
 
 func Start() cli.ActionFunc {
 	return func(c *cli.Context) error {
+		prometheus.Init()
 		http.Handle("/metrics", promhttp.Handler())
 		config.Init()
 		dao.Init()

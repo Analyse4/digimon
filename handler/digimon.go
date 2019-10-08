@@ -11,6 +11,7 @@ import (
 	"digimon/peer/sessionmanager"
 	"digimon/player"
 	"digimon/playermanager"
+	"digimon/prometheus"
 	"digimon/room"
 	"digimon/roommanager"
 	"digimon/svcregister"
@@ -21,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 	"syscall"
+	"time"
 )
 
 const INVALIDID = 0
@@ -103,24 +105,39 @@ func (dgm *Digimon) CleanerListen() {
 							rm.IsOpen = false
 							dao.UpdateRoomInfo(rm)
 							dgm.RoomManager.Delete(roomID)
+							prometheus.GetRoomGauge().Dec()
+						} else {
+							prometheus.GetInGameRoomGauge().Dec()
 						}
 					}
 					dgm.PlayerManager.Delete(cmt.PlayerID)
+					prometheus.GetPlayerGauge().Dec()
 				}
 			}
 			sess := dgm.SessionManager.Get(cmt.ConnID)
 			sess.Conn.Close()
 			dgm.SessionManager.Delete(cmt.ConnID)
 
-			log.WithFields(logrus.Fields{
-				"room_id":           rm.Id,
-				"player_id":         cmt.PlayerID,
-				"session_id":        cmt.ConnID,
-				"connection_id":     cmt.ConnID,
-				"total_player":      len(dgm.PlayerManager.PlayerMap),
-				"total_room":        len(dgm.RoomManager.RoomMap),
-				"total_room_player": rm.CurrentNum,
-			}).Debug("connection resource is released")
+			if rm != nil {
+				log.WithFields(logrus.Fields{
+					"room_id":                 rm.Id,
+					"player_id":               cmt.PlayerID,
+					"session_id":              cmt.ConnID,
+					"connection_id":           cmt.ConnID,
+					"total_player":            len(dgm.PlayerManager.PlayerMap),
+					"total_room":              len(dgm.RoomManager.RoomMap),
+					"current_room_player_num": rm.CurrentNum,
+				}).Debug("connection resource is released")
+			} else {
+				log.WithFields(logrus.Fields{
+					"player_id":     cmt.PlayerID,
+					"session_id":    cmt.ConnID,
+					"connection_id": cmt.ConnID,
+					"total_player":  len(dgm.PlayerManager.PlayerMap),
+					"total_room":    len(dgm.RoomManager.RoomMap),
+				}).Debug("connection resource is released")
+			}
+			log.Println(time.Now())
 		}
 	}
 }
@@ -178,6 +195,7 @@ func (dgm *Digimon) Login(sess *session.Session, req *pbprotocol.LoginReq) (*pbp
 			}).Info("new player login")
 			player, err := player.New(sess)
 			dgm.PlayerManager.Add(player)
+			prometheus.GetPlayerGauge().Inc()
 			if err != nil {
 				log.Println(err)
 				ack.Base.Result = errorhandler.ERR_SERVICEBUSY
@@ -226,6 +244,7 @@ func (dgm *Digimon) JoinRoom(sess *session.Session, req *pbprotocol.JoinRoomReq)
 	room.AddPlayer(player)
 	//TODO: dao update old room info
 	if isNew {
+		prometheus.GetRoomGauge().Inc()
 		dao.InsertRoomInfo(room)
 	} else {
 		dao.UpdateRoomInfo(room)
@@ -247,6 +266,7 @@ func (dgm *Digimon) JoinRoom(sess *session.Session, req *pbprotocol.JoinRoomReq)
 		}
 
 		go room.BroadCast("digimon.startgame", ack)
+		prometheus.GetInGameRoomGauge().Inc()
 	}
 
 	ack.Base.Result = errorhandler.SUCESS

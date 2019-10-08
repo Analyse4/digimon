@@ -5,11 +5,15 @@ import (
 	"digimon/logger"
 	"digimon/peer/cleaner"
 	"digimon/peer/session"
+	"digimon/prometheus"
 	"digimon/svcregister"
 	"github.com/gorilla/websocket"
+	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"reflect"
+	"strconv"
 	"sync"
+	"time"
 )
 
 //TODO: buffer size should bigger
@@ -127,6 +131,7 @@ func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec, sess *session.Sess
 		}).Error("router not found")
 		return
 	}
+	t := time.Now()
 	f := h.Func
 	rv := f.Func.Call([]reflect.Value{h.Receiver, reflect.ValueOf(sess), reflect.ValueOf(pack.Msg)})
 	if rv[1].Interface() != nil {
@@ -135,8 +140,12 @@ func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec, sess *session.Sess
 		}).Error(rv[1].Interface().(error))
 		return
 	}
-	//TODO: use codec marshal
-	//ack, err := proto.Marshal(rv[0].Interface().(proto.Message))
+	du := time.Since(t)
+	promeLabel := stdprometheus.Labels{
+		"router": pack.Router,
+		"result": strconv.Itoa(int(rv[0].Elem().Field(0).Elem().Field(0).Int())),
+	}
+	prometheus.GethandlerLatencySummary().With(promeLabel).Observe(du.Seconds())
 	ack, _ := cd.Marshal(pack.Router, rv[0].Interface())
 	if err != nil {
 		log.WithFields(logrus.Fields{
