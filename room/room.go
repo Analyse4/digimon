@@ -57,6 +57,7 @@ func (r *Room) AddPlayer(p *player.Player) {
 		r.PlayerInfos[0].Id = p.Id
 		r.PlayerInfos[0].NickName = p.NickName
 		r.PlayerInfos[0].RoomID = p.RoomID
+		r.PlayerInfos[0].DigiMonstor = p.DigiMonstor
 		r.PlayerInfos[0].Sess = p.Sess
 		r.NewSeated = 0
 	} else {

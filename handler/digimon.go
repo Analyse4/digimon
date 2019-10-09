@@ -235,13 +235,13 @@ func (dgm *Digimon) JoinRoom(sess *session.Session, req *pbprotocol.JoinRoomReq)
 		return ack, nil
 	}
 	room, isNew := dgm.RoomManager.GetIdleRoom()
-	player, err := dgm.PlayerManager.Get(playerID.(uint64))
+	pl, err := dgm.PlayerManager.Get(playerID.(uint64))
 	if err != nil {
 		log.WithFields(logrus.Fields{
 			"player_id": playerID,
 		}).Debug(err)
 	}
-	room.AddPlayer(player)
+	room.AddPlayer(pl)
 	//TODO: dao update old room info
 	if isNew {
 		prometheus.GetRoomGauge().Inc()
@@ -253,15 +253,27 @@ func (dgm *Digimon) JoinRoom(sess *session.Session, req *pbprotocol.JoinRoomReq)
 		ack := new(pbprotocol.StartGameAck)
 		roominfo := new(pbprotocol.RoomInfo)
 		ack.RoomInfo = roominfo
-		ack.Identity = pbprotocol.DigimonIdentity_PALMON
 		ack.RoomInfo.RoomId = room.Id
 		ack.RoomInfo.Type = room.Type
 		ack.RoomInfo.CurrentPlayerNum = room.CurrentNum
 		ack.RoomInfo.IsStart = room.IsStart
 		for _, p := range room.PlayerInfos {
+			p.DigiMonstor.Identity = pbprotocol.DigimonIdentity_PALMON
+			p.DigiMonstor.IdentityLevel = player.ROOKIE
+			p.DigiMonstor.SkillType = player.NULL
+			p.DigiMonstor.SkillLevel = player.NULL
+			p.DigiMonstor.SkillName = ""
+
 			tmpPlayerInfo := new(pbprotocol.PlayerInfo)
+			tmpPlayerInfo.Hero = new(pbprotocol.Hero)
 			tmpPlayerInfo.Id = p.Id
 			tmpPlayerInfo.Nickname = p.NickName
+			tmpPlayerInfo.Hero.Identity = p.DigiMonstor.Identity
+			tmpPlayerInfo.Hero.IdentityLevel = p.DigiMonstor.IdentityLevel
+			tmpPlayerInfo.Hero.SkillType = p.DigiMonstor.SkillType
+			tmpPlayerInfo.Hero.SkillLevel = p.DigiMonstor.SkillLevel
+			tmpPlayerInfo.Hero.SkillName = p.DigiMonstor.SkillName
+
 			ack.RoomInfo.PlayerInfos = append(ack.RoomInfo.PlayerInfos, tmpPlayerInfo)
 		}
 
@@ -287,6 +299,82 @@ func (dgm *Digimon) JoinRoom(sess *session.Session, req *pbprotocol.JoinRoomReq)
 		"current_player_num": room.CurrentNum,
 	}).Debug("room info")
 
+	return ack, nil
+}
+
+func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseSkillReq) (*pbprotocol.ReleaseSkillAck, error) {
+	ack := new(pbprotocol.ReleaseSkillAck)
+	ack.Base = new(pbprotocol.BaseAck)
+	ack.Hero = new(pbprotocol.Hero)
+	playerID := sess.Get("PLAYERID")
+	if playerID == nil {
+		logrus.Debug("user not login")
+		ack.Base.Result = errorhandler.ERR_USERNOTLOGIN
+		ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_USERNOTLOGIN)
+		return ack, nil
+	}
+	pl, err := dgm.PlayerManager.Get(playerID.(uint64))
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			"player_id": playerID,
+		}).Debug(err)
+	}
+	if req.SkillLevel < 0 || req.SkillType < 0 {
+		logrus.Debug("parameter invalid")
+		err = fmt.Errorf("parameter invalid")
+	}
+	switch req.SkillType {
+	case player.POWERUP:
+		pl.PowerUp()
+	case player.DEFENCE:
+		pl.DigiMonstor.SkillLevel = req.SkillLevel
+	case player.ESCAPE:
+
+	case player.ATTACK:
+		err := pl.PowerDown(req.SkillLevel)
+		if err != nil {
+			logrus.Println(err)
+			break
+		}
+		pl.DigiMonstor.SkillLevel = req.SkillLevel
+		pl.DigiMonstor.SkillName = pl.GetAttackName(req.SkillLevel)
+		//TODO: judge
+	case player.EVOLVE:
+		//mega-evolve
+		//super-evolve
+		//evolve
+		if req.SkillLevel == 3 {
+			err = pl.PowerDown(5)
+		} else if req.SkillLevel == 2 {
+			err = pl.PowerDown(3)
+		} else if req.SkillLevel == 1 {
+			err = pl.PowerDown(2)
+		}
+		if err != nil {
+			logrus.Println(err)
+			break
+		}
+		pl.DigiMonstor.SkillLevel = req.SkillLevel
+		pl.Evolve(req.SkillLevel)
+	default:
+		logrus.Debug("parameter invalid")
+		err = fmt.Errorf("parameter invalid")
+	}
+	if err != nil {
+		ack.Base.Result = errorhandler.ERR_PARAMETERINVALID
+		ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_PARAMETERINVALID)
+		return ack, nil
+	}
+	pl.DigiMonstor.SkillType = req.SkillType
+
+	ack.Base.Result = errorhandler.SUCESS
+	ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)
+	ack.Hero.Identity = pl.DigiMonstor.Identity
+	ack.Hero.IdentityLevel = pl.DigiMonstor.IdentityLevel
+	ack.Hero.SkillType = pl.DigiMonstor.SkillType
+	ack.Hero.SkillLevel = pl.DigiMonstor.SkillLevel
+	ack.Hero.SkillPoint = pl.DigiMonstor.SkillPoint
+	ack.Hero.SkillName = pl.DigiMonstor.SkillName
 	return ack, nil
 }
 

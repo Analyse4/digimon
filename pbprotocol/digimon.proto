@@ -26,6 +26,8 @@ message LoginReq {
 message PlayerInfo {
     uint64 id = 1;
     string nickname = 2;
+    uint64 room_id = 3;
+    Hero hero = 4;
 }
 
 message LoginAck {
@@ -84,7 +86,25 @@ enum DigimonIdentity {
     ANGEWOMON = 25;
 }
 
-message StartGameAck {
+message Hero {
     DigimonIdentity identity = 1;
-    RoomInfo room_info = 2;
+    int32 identity_level = 2;
+    int32 skill_point = 3;
+    int32 skill_type = 4;
+    int32 skill_level = 5;
+    string skill_name = 6;
+}
+
+message StartGameAck {
+    RoomInfo room_info = 1;
+}
+
+message ReleaseSkillReq {
+    int32 skill_type = 1;
+    int32 skill_level = 2;
+}
+
+message ReleaseSkillAck {
+    BaseAck base = 1;
+    Hero hero = 2;
 }
