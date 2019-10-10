@@ -3,6 +3,8 @@ package room
 import (
 	"digimon/pbprotocol"
 	"digimon/player"
+	"digimon/playermanager"
+	"github.com/sirupsen/logrus"
 	"sync"
 )
 
@@ -34,6 +36,7 @@ type Room struct {
 	NewSeated   int8
 	IsOpen      bool
 	Skills      *skillSet
+	round       int32
 }
 
 // temporary only have two-player room
@@ -48,6 +51,7 @@ func New() *Room {
 		NewSeated:   -1,
 		IsOpen:      true,
 		Skills:      &skillSet{mu: new(sync.Mutex), skills: make(map[int32]bool)},
+		round:       1,
 	}
 	mu.Lock()
 	currentRoomID = r.Id
@@ -99,7 +103,7 @@ func (r *Room) BroadCast(router string, data interface{}) {
 
 func (sks *skillSet) Update(seat int32) {
 	sks.mu.Lock()
-	defer mu.Unlock()
+	defer sks.mu.Unlock()
 	sks.skills[seat] = true
 }
 
@@ -111,11 +115,35 @@ func (sks *skillSet) Refresh() {
 	}
 }
 
-func (sks *skillSet) IsSkillsReady() bool {
+func (sks *skillSet) IsSkillsReady(roomNum pbprotocol.RoomInfo_RoomType) bool {
+	switch roomNum {
+	case pbprotocol.RoomInfo_TWO:
+		if len(sks.skills) < 2 {
+			return false
+		}
+	default:
+		logrus.Error("room type invalid")
+		return false
+	}
 	for _, v := range sks.skills {
 		if v == false {
 			return false
 		}
 	}
 	return true
+}
+
+func (r *Room) UpdateRound() { r.round++ }
+
+func (r *Room) GetRound() int32 { return r.round }
+
+func (r *Room) UpdatePlayerInfo(pm *playermanager.PlayerManager, ids ...uint64) {
+	for id := range ids {
+		for i, v := range r.PlayerInfos {
+			if v.Id == uint64(id) {
+				pl, _ := pm.Get(v.Id)
+				r.PlayerInfos[i].DigiMonstor = pl.DigiMonstor
+			}
+		}
+	}
 }

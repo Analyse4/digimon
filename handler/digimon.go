@@ -268,6 +268,8 @@ func (dgm *Digimon) JoinRoom(sess *session.Session, req *pbprotocol.JoinRoomReq)
 			tmpPlayerInfo.Hero = new(pbprotocol.Hero)
 			tmpPlayerInfo.Id = p.Id
 			tmpPlayerInfo.Nickname = p.NickName
+			tmpPlayerInfo.RoomId = p.RoomID
+			tmpPlayerInfo.Seat = p.Seat
 			tmpPlayerInfo.Hero.Identity = p.DigiMonstor.Identity
 			tmpPlayerInfo.Hero.IdentityLevel = p.DigiMonstor.IdentityLevel
 			tmpPlayerInfo.Hero.SkillType = p.DigiMonstor.SkillType
@@ -291,6 +293,8 @@ func (dgm *Digimon) JoinRoom(sess *session.Session, req *pbprotocol.JoinRoomReq)
 		tmpPlayerInfo := new(pbprotocol.PlayerInfo)
 		tmpPlayerInfo.Id = p.Id
 		tmpPlayerInfo.Nickname = p.NickName
+		tmpPlayerInfo.RoomId = p.RoomID
+		tmpPlayerInfo.Seat = p.Seat
 		ack.RoomInfo.PlayerInfos = append(ack.RoomInfo.PlayerInfos, tmpPlayerInfo)
 	}
 
@@ -338,7 +342,6 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 		}
 		pl.DigiMonstor.SkillLevel = req.SkillLevel
 		pl.DigiMonstor.SkillName = pl.GetAttackName(req.SkillLevel)
-		//TODO: judge
 	case player.EVOLVE:
 		//mega-evolve
 		//super-evolve
@@ -371,6 +374,7 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 	}
 	pl.DigiMonstor.SkillType = req.SkillType
 	rm, err := dgm.RoomManager.Get(pl.RoomID)
+	rm.UpdatePlayerInfo(dgm.PlayerManager, pl.Id)
 	if err != nil {
 		logrus.Debug("room not find")
 		ack.Base.Result = errorhandler.ERR_SERVICEBUSY
@@ -378,28 +382,25 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 		return ack, nil
 	}
 	rm.Skills.Update(pl.Seat)
-	if rm.Skills.IsSkillsReady() {
+	if rm.Skills.IsSkillsReady(rm.Type) {
+		bcAck := new(pbprotocol.RoundResultAck)
 		if dgm.isCurrentRoundEnd() {
-			//broadcast
+			bcAck.IsEnd = true
 		} else {
-			ack.Base.Result = errorhandler.SUCESS
-			ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)
-			ack.Hero.Identity = pl.DigiMonstor.Identity
-			ack.Hero.IdentityLevel = pl.DigiMonstor.IdentityLevel
-			ack.Hero.SkillType = pl.DigiMonstor.SkillType
-			ack.Hero.SkillLevel = pl.DigiMonstor.SkillLevel
-			ack.Hero.SkillPoint = pl.DigiMonstor.SkillPoint
-			ack.Hero.SkillName = pl.DigiMonstor.SkillName
-			return ack, nil
+			bcAck.IsEnd = false
+			rm.UpdateRound()
+			rm.Skills.Refresh()
+			bcAck.Round = rm.GetRound()
 		}
+		go rm.BroadCast("digimon.roundresult", bcAck)
 	}
 	ack.Base.Result = errorhandler.SUCESS
 	ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)
 	ack.Hero.Identity = pl.DigiMonstor.Identity
 	ack.Hero.IdentityLevel = pl.DigiMonstor.IdentityLevel
+	ack.Hero.SkillPoint = pl.DigiMonstor.SkillPoint
 	ack.Hero.SkillType = pl.DigiMonstor.SkillType
 	ack.Hero.SkillLevel = pl.DigiMonstor.SkillLevel
-	ack.Hero.SkillPoint = pl.DigiMonstor.SkillPoint
 	ack.Hero.SkillName = pl.DigiMonstor.SkillName
 	return ack, nil
 }

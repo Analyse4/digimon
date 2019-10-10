@@ -75,18 +75,20 @@ func (p *Player) PowerDown(num int32) error {
 	if (p.DigiMonstor.SkillPoint - num) < 0 {
 		return errorhandler.ERR_SKILLPOINTNOTENOUGH_MSG
 	}
-	p.DigiMonstor.SkillPoint = p.DigiMonstor.SkillPoint - 2
+	p.DigiMonstor.SkillPoint = p.DigiMonstor.SkillPoint - num
 	return nil
 }
 
 func (p *Player) Evolve(typ int32) {
-	p.DigiMonstor.IdentityLevel = typ
 	switch typ {
 	case 1:
 		p.DigiMonstor.Identity++
+		p.DigiMonstor.IdentityLevel = CHAMPION
 	case 2:
 		p.DigiMonstor.Identity++
+		p.DigiMonstor.IdentityLevel = ULTIMATE
 	case 3:
+		p.DigiMonstor.IdentityLevel = MEGA
 		if p.DigiMonstor.IdentityLevel == 0 {
 			p.DigiMonstor.Identity = p.DigiMonstor.Identity + 3
 		} else if p.DigiMonstor.IdentityLevel == 1 {

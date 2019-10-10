@@ -46,6 +46,7 @@ message RoomInfo {
     bool IsStart = 3;
     uint32 current_player_num = 4;
     repeated PlayerInfo player_infos = 5;
+    int32 round = 6;
 }
 
 // join room
@@ -108,4 +109,9 @@ message ReleaseSkillReq {
 message ReleaseSkillAck {
     BaseAck base = 1;
     Hero hero = 2;
+}
+
+message RoundResultAck {
+    bool IsEnd = 1;
+    int32 round = 2;
 }
