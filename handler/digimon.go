@@ -321,7 +321,7 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 	}
 	if req.SkillLevel < 0 || req.SkillType < 0 {
 		logrus.Debug("parameter invalid")
-		err = fmt.Errorf("parameter invalid")
+		err = errorhandler.ERR_PARAMETERINVALID_MSG
 	}
 	switch req.SkillType {
 	case player.POWERUP:
@@ -358,15 +358,41 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 		pl.Evolve(req.SkillLevel)
 	default:
 		logrus.Debug("parameter invalid")
-		err = fmt.Errorf("parameter invalid")
+		err = errorhandler.ERR_SKILLPOINTNOTENOUGH_MSG
 	}
-	if err != nil {
+	if err == errorhandler.ERR_PARAMETERINVALID_MSG {
 		ack.Base.Result = errorhandler.ERR_PARAMETERINVALID
 		ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_PARAMETERINVALID)
 		return ack, nil
+	} else if err == errorhandler.ERR_SKILLPOINTNOTENOUGH_MSG {
+		ack.Base.Result = errorhandler.ERR_SKILLPOINTNOTENOUGH
+		ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_SKILLPOINTNOTENOUGH)
+		return ack, nil
 	}
 	pl.DigiMonstor.SkillType = req.SkillType
-
+	rm, err := dgm.RoomManager.Get(pl.RoomID)
+	if err != nil {
+		logrus.Debug("room not find")
+		ack.Base.Result = errorhandler.ERR_SERVICEBUSY
+		ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_SERVICEBUSY)
+		return ack, nil
+	}
+	rm.Skills.Update(pl.Seat)
+	if rm.Skills.IsSkillsReady() {
+		if dgm.isCurrentRoundEnd() {
+			//broadcast
+		} else {
+			ack.Base.Result = errorhandler.SUCESS
+			ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)
+			ack.Hero.Identity = pl.DigiMonstor.Identity
+			ack.Hero.IdentityLevel = pl.DigiMonstor.IdentityLevel
+			ack.Hero.SkillType = pl.DigiMonstor.SkillType
+			ack.Hero.SkillLevel = pl.DigiMonstor.SkillLevel
+			ack.Hero.SkillPoint = pl.DigiMonstor.SkillPoint
+			ack.Hero.SkillName = pl.DigiMonstor.SkillName
+			return ack, nil
+		}
+	}
 	ack.Base.Result = errorhandler.SUCESS
 	ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)
 	ack.Hero.Identity = pl.DigiMonstor.Identity
@@ -391,4 +417,8 @@ func checkHandlerMethod(m reflect.Method) bool {
 
 func (dgm *Digimon) GetName() string {
 	return dgm.Name
+}
+
+func (dgm *Digimon) isCurrentRoundEnd() bool {
+	return false
 }

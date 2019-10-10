@@ -2,17 +2,17 @@ package player
 
 import (
 	"digimon/codec"
+	"digimon/errorhandler"
 	"digimon/pbprotocol"
 	"digimon/peer/session"
 	"digimon/utils/randomid"
-	"fmt"
 	"github.com/Pallinder/go-randomdata"
 	"sync"
 )
 
 const (
-	NULL    = -1
-	POWERUP = iota + 1
+	NULL = iota
+	POWERUP
 	DEFENCE
 	ESCAPE
 	_
@@ -38,6 +38,7 @@ type Player struct {
 	Id          uint64
 	NickName    string
 	RoomID      uint64
+	Seat        int32
 	DigiMonstor *Hero
 	Sess        *session.Session
 }
@@ -47,6 +48,7 @@ func New(sess *session.Session) (*Player, error) {
 	p.NickName = randomdata.FullName(randomdata.Male)
 	p.Id = randomid.GetUniqueId()
 	p.Sess = sess
+	p.Seat = -1
 	p.DigiMonstor = new(Hero)
 	p.DigiMonstor.mu = new(sync.Mutex)
 	return p, nil
@@ -71,7 +73,7 @@ func (p *Player) PowerDown(num int32) error {
 	p.DigiMonstor.mu.Lock()
 	defer p.DigiMonstor.mu.Unlock()
 	if (p.DigiMonstor.SkillPoint - num) < 0 {
-		return fmt.Errorf("skill point not enough")
+		return errorhandler.ERR_SKILLPOINTNOTENOUGH_MSG
 	}
 	p.DigiMonstor.SkillPoint = p.DigiMonstor.SkillPoint - 2
 	return nil

@@ -16,6 +16,11 @@ var (
 	currentRoomID uint64
 )
 
+type skillSet struct {
+	mu     *sync.Mutex
+	skills map[int32]bool
+}
+
 // IsStart: game is start or not
 // NewSeated: new joined player's seat num
 // IsOpen: room is open or not
@@ -28,6 +33,7 @@ type Room struct {
 	PlayerInfos []*player.Player
 	NewSeated   int8
 	IsOpen      bool
+	Skills      *skillSet
 }
 
 // temporary only have two-player room
@@ -41,6 +47,7 @@ func New() *Room {
 		PlayerInfos: make([]*player.Player, 1),
 		NewSeated:   -1,
 		IsOpen:      true,
+		Skills:      &skillSet{mu: new(sync.Mutex), skills: make(map[int32]bool)},
 	}
 	mu.Lock()
 	currentRoomID = r.Id
@@ -60,9 +67,11 @@ func (r *Room) AddPlayer(p *player.Player) {
 		r.PlayerInfos[0].DigiMonstor = p.DigiMonstor
 		r.PlayerInfos[0].Sess = p.Sess
 		r.NewSeated = 0
+		p.Seat = 0
 	} else {
 		r.PlayerInfos = append(r.PlayerInfos, p)
 		r.NewSeated = int8(len(r.PlayerInfos) - 1)
+		p.Seat = int32(len(r.PlayerInfos) - 1)
 	}
 	r.CurrentNum++
 	if r.CurrentNum == 2 {
@@ -86,4 +95,27 @@ func (r *Room) BroadCast(router string, data interface{}) {
 	for _, p := range r.PlayerInfos {
 		p.Send(router, data)
 	}
+}
+
+func (sks *skillSet) Update(seat int32) {
+	sks.mu.Lock()
+	defer mu.Unlock()
+	sks.skills[seat] = true
+}
+
+func (sks *skillSet) Refresh() {
+	sks.mu.Lock()
+	defer sks.mu.Unlock()
+	for i := range sks.skills {
+		sks.skills[i] = false
+	}
+}
+
+func (sks *skillSet) IsSkillsReady() bool {
+	for _, v := range sks.skills {
+		if v == false {
+			return false
+		}
+	}
+	return true
 }

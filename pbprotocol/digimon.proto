@@ -28,6 +28,7 @@ message PlayerInfo {
     string nickname = 2;
     uint64 room_id = 3;
     Hero hero = 4;
+    int32 seat = 5;
 }
 
 message LoginAck {
