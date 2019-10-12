@@ -333,7 +333,7 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 	case player.DEFENCE:
 		pl.DigiMonstor.SkillLevel = req.SkillLevel
 	case player.ESCAPE:
-
+		pl.DigiMonstor.IsEscape = true
 	case player.ATTACK:
 		err := pl.PowerDown(req.SkillLevel)
 		if err != nil {
@@ -342,6 +342,7 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 		}
 		pl.DigiMonstor.SkillLevel = req.SkillLevel
 		pl.DigiMonstor.SkillName = pl.GetAttackName(req.SkillLevel)
+		pl.DigiMonstor.SetSkillTargets(req.SkillTargets)
 	case player.EVOLVE:
 		//mega-evolve
 		//super-evolve
@@ -384,13 +385,34 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 	rm.Skills.Update(pl.Seat)
 	if rm.Skills.IsSkillsReady(rm.Type) {
 		bcAck := new(pbprotocol.RoundResultAck)
-		if dgm.isCurrentRoundEnd() {
+		bcAck.RoundResult.DeadId = make([]uint64, 0)
+		bcAck.RoundResult.Judges = make(map[uint64]*pbprotocol.RoundResultAck_RoundResult_ListJudge)
+		if roundResult, err := rm.DeadAnalyse(); err != nil {
+			logrus.Debug(err)
+			ack.Base.Result = errorhandler.ERR_PARAMETERINVALID
+			ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_PARAMETERINVALID)
+			return ack, nil
+		} else if rm.IsAllDead() {
 			bcAck.IsEnd = true
+			bcAck.Round = rm.GetRound()
 		} else {
-			bcAck.IsEnd = false
 			rm.UpdateRound()
 			rm.Skills.Refresh()
+			rm.RefreshAllHeroStatus()
+			bcAck.IsEnd = false
 			bcAck.Round = rm.GetRound()
+			bcAck.RoundResult.DeadId = append(bcAck.RoundResult.DeadId, roundResult.DeadID...)
+			for attackerID, targets := range roundResult.FinalJudgeID {
+				tmpTargets := new(pbprotocol.RoundResultAck_RoundResult_ListJudge)
+				tmpTargets.Judge = make([]*pbprotocol.RoundResultAck_RoundResult_Judge, 0)
+				for _, target := range targets {
+					tmpTarget := new(pbprotocol.RoundResultAck_RoundResult_Judge)
+					tmpTarget.PlayerId = target.PlayerID
+					tmpTarget.Number = target.Number
+					tmpTargets.Judge = append(tmpTargets.Judge, tmpTarget)
+				}
+				bcAck.RoundResult.Judges[attackerID] = tmpTargets
+			}
 		}
 		go rm.BroadCast("digimon.roundresult", bcAck)
 	}
@@ -402,6 +424,8 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 	ack.Hero.SkillType = pl.DigiMonstor.SkillType
 	ack.Hero.SkillLevel = pl.DigiMonstor.SkillLevel
 	ack.Hero.SkillName = pl.DigiMonstor.SkillName
+	ack.Hero.IsEscape = pl.DigiMonstor.IsEscape
+	ack.Hero.IsDead = pl.DigiMonstor.IsDead
 	return ack, nil
 }
 
@@ -418,8 +442,4 @@ func checkHandlerMethod(m reflect.Method) bool {
 
 func (dgm *Digimon) GetName() string {
 	return dgm.Name
-}
-
-func (dgm *Digimon) isCurrentRoundEnd() bool {
-	return false
 }

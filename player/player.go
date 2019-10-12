@@ -32,6 +32,9 @@ type Hero struct {
 	SkillType     int32
 	SkillLevel    int32
 	SkillName     string
+	IsEscape      bool
+	SkillTargets  []uint64
+	IsDead        bool
 }
 
 type Player struct {
@@ -51,6 +54,8 @@ func New(sess *session.Session) (*Player, error) {
 	p.Seat = -1
 	p.DigiMonstor = new(Hero)
 	p.DigiMonstor.mu = new(sync.Mutex)
+	p.DigiMonstor.SkillTargets = make([]uint64, 0)
+	p.DigiMonstor.IsDead = false
 	return p, nil
 }
 
@@ -102,4 +107,23 @@ func (p *Player) Evolve(typ int32) {
 func (p *Player) GetAttackName(typ int32) string {
 	// TODO:
 	return ""
+}
+
+func (h *Hero) SetSkillTargets(targets []uint64) {
+	for i, v := range targets {
+		h.SkillTargets[i] = v
+	}
+}
+
+func (h *Hero) refreshSkillTargets() {
+	for i := range h.SkillTargets {
+		h.SkillTargets[i] = 0
+	}
+}
+
+func (h *Hero) RefreshHeroRoundStatus() {
+	h.SkillType = 0
+	h.SkillLevel = 0
+	h.SkillName = ""
+	h.refreshSkillTargets()
 }
