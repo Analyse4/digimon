@@ -18,7 +18,10 @@ const (
 	_
 	ATTACK
 	EVOLVE
-	ROOKIE
+)
+
+const (
+	ROOKIE = iota + 1
 	CHAMPION
 	ULTIMATE
 	MEGA
