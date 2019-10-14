@@ -442,10 +442,29 @@ func (dgm *Digimon) RPCBattle(sess *session.Session, req *pbprotocol.RPCBattleRe
 		return ack, nil
 	}
 	if rpcResult.IsReady {
+		if rpcResult.IsEnd {
+			rm.RefreshAllHeroStatus()
+			rm.UpdateRound()
+			startGameAck := new(pbprotocol.StartGameAck)
+			startGameAck.RoomInfo.PlayerInfos = make([]*pbprotocol.PlayerInfo, 0)
+			startGameAck.RoomInfo.Round = rm.GetRound()
+			for i, pl := range rm.PlayerInfos {
+				startGameAck.RoomInfo.PlayerInfos[i].Hero = new(pbprotocol.Hero)
+				startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillTargets = make([]uint64, 0)
+
+				startGameAck.RoomInfo.PlayerInfos[i].Hero.IsDead = pl.DigiMonstor.IsDead
+				startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillType = pl.DigiMonstor.SkillType
+				startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillLevel = pl.DigiMonstor.SkillLevel
+				startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillName = pl.DigiMonstor.SkillName
+				startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillTargets = append(startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillTargets, pl.DigiMonstor.SkillTargets...)
+			}
+			go rm.BroadCast("digimon.startgame", startGameAck)
+		}
 		ack.LastWinId = rpcResult.WinID
 		ack.IsHaveNext = rpcResult.IsHaveNext
 		ack.AttackerId = rpcResult.AttackerID
 		ack.TargetId = rpcResult.TargetID
+		go rm.BroadCast("digimon.rbcbattle", ack)
 	}
 	return nil, nil
 }

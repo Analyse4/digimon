@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"math"
 	"sync"
+	"sync/atomic"
 )
 
 const (
@@ -75,6 +76,7 @@ type RPCInfo struct {
 
 type RPCResult struct {
 	IsReady    bool
+	IsEnd      bool
 	WinID      uint64
 	IsHaveNext bool
 	AttackerID uint64
@@ -101,6 +103,7 @@ type Room struct {
 	Skills      *skillSet
 	round       int32
 	RCPSet      map[uint64]map[uint64]*rulingControlPanel
+	RulingNum   uint64
 }
 
 // temporary only have two-player room
@@ -225,6 +228,7 @@ func (r *Room) NotifyDead(deadIDList []uint64) {
 func (r *Room) SendRulingResult() {
 	for attackerID, targets := range r.RCPSet {
 		for targetID := range targets {
+			atomic.AddUint64(&r.RulingNum, 1)
 			ack := new(pbprotocol.RulingResultAck)
 			ack.AttackerID = attackerID
 			ack.TargetID = targetID
@@ -564,24 +568,28 @@ func (r *Room) RPCAnalyse(rpcInfo *RPCInfo, id uint64) (*RPCResult, error) {
 	}
 
 	if rpcSCP.IsEnd() {
-		rpcr.isReady = true
+		rpcr.IsReady = true
 		winID, err := rpcSCP.RPCCompute()
 		if err != nil {
 			return nil, err
 		}
 		if winID != 0 {
 			rCP.Update()
+			atomic.AddUint64(&r.RulingNum, ^uint64(0))
 		}
-		rpcr.winID = winID
-		rpcr.attackerID = attackerID
-		rpcr.targetID = targetID
+		rpcr.WinID = winID
+		rpcr.AttackerID = attackerID
+		rpcr.TargetID = targetID
 		if rCP.IsEnd() {
-			rpcr.isHaveNext = true
+			rpcr.IsHaveNext = true
 		} else {
-			rpcr.isHaveNext = false
+			rpcr.IsHaveNext = false
+		}
+		if atomic.LoadUint64(&r.RulingNum) == 0 {
+			rpcr.IsEnd = true
 		}
 	} else {
-		rpcr.isReady = false
+		rpcr.IsReady = false
 	}
 	return rpcr, nil
 }
