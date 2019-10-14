@@ -475,6 +475,7 @@ func (r *Room) RoundAnalyse() (*RoundResult, error) {
 					tmpRulingControlPanel := new(rulingControlPanel)
 					tmpRulingControlPanel.rpcSCP = panel.NewRpcSelectionCounterPanel()
 					tmpRulingControlPanel.rCP = panel.NewRulingCounterPanel(rpcT)
+					rr.RulingInfo[attackerID][t] = tmpRulingControlPanel
 				}
 			}
 			if tpl.DigiMonstor.SkillType == player.ATTACK {
@@ -592,4 +593,10 @@ func (r *Room) RPCAnalyse(rpcInfo *RPCInfo, id uint64) (*RPCResult, error) {
 		rpcr.IsReady = false
 	}
 	return rpcr, nil
+}
+
+func (r *Room) RefreshRPCSet() {
+	for k := range r.RCPSet {
+		delete(r.RCPSet, k)
+	}
 }

@@ -390,8 +390,30 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 			return ack, nil
 		} else {
 			rm.UpdatePlayerInfo(dgm.PlayerManager, roundResult)
-			//rm.NotifyDead(roundResult.DeadID)
-			rm.SendRulingResult()
+			if len(roundResult.RulingInfo) == 0 {
+				rm.RefreshAllHeroStatus()
+				rm.UpdateRound()
+				rm.Skills.Refresh()
+				rm.RulingNum = 0
+				rm.RefreshRPCSet()
+
+				startGameAck := new(pbprotocol.StartGameAck)
+				startGameAck.RoomInfo.PlayerInfos = make([]*pbprotocol.PlayerInfo, 0)
+				startGameAck.RoomInfo.Round = rm.GetRound()
+				for i, pl := range rm.PlayerInfos {
+					startGameAck.RoomInfo.PlayerInfos[i].Hero = new(pbprotocol.Hero)
+					startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillTargets = make([]uint64, 0)
+
+					startGameAck.RoomInfo.PlayerInfos[i].Hero.IsDead = pl.DigiMonstor.IsDead
+					startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillType = pl.DigiMonstor.SkillType
+					startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillLevel = pl.DigiMonstor.SkillLevel
+					startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillName = pl.DigiMonstor.SkillName
+					startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillTargets = append(startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillTargets, pl.DigiMonstor.SkillTargets...)
+				}
+				go rm.BroadCast("digimon.startgame", startGameAck)
+			} else {
+				rm.SendRulingResult()
+			}
 		}
 	}
 	ack.Base.Result = errorhandler.SUCESS
@@ -445,6 +467,10 @@ func (dgm *Digimon) RPCBattle(sess *session.Session, req *pbprotocol.RPCBattleRe
 		if rpcResult.IsEnd {
 			rm.RefreshAllHeroStatus()
 			rm.UpdateRound()
+			rm.Skills.Refresh()
+			rm.RulingNum = 0
+			rm.RefreshRPCSet()
+
 			startGameAck := new(pbprotocol.StartGameAck)
 			startGameAck.RoomInfo.PlayerInfos = make([]*pbprotocol.PlayerInfo, 0)
 			startGameAck.RoomInfo.Round = rm.GetRound()
