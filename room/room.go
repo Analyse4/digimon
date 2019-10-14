@@ -42,6 +42,11 @@ type rulingCondition struct {
 	TEscape        bool
 }
 
+type twoAttacker struct {
+	attackerID uint64
+	targetID   uint64
+}
+
 //type JudgeInfo struct {
 //	PlayerID uint64
 //	Number   int32
@@ -60,6 +65,20 @@ type rulingControlPanel struct {
 type RoundResult struct {
 	RulingInfo map[uint64]map[uint64]*rulingControlPanel
 	DeadID     []uint64
+}
+
+type RPCInfo struct {
+	RPC         int32
+	Role        int32
+	OtherSideID uint64
+}
+
+type RPCResult struct {
+	IsReady    bool
+	WinID      uint64
+	IsHaveNext bool
+	AttackerID uint64
+	TargetID   uint64
 }
 
 type skillSet struct {
@@ -81,6 +100,7 @@ type Room struct {
 	IsOpen      bool
 	Skills      *skillSet
 	round       int32
+	RCPSet      map[uint64]map[uint64]*rulingControlPanel
 }
 
 // temporary only have two-player room
@@ -108,12 +128,13 @@ func (r *Room) AddPlayer(p *player.Player) {
 	r.Mu.Lock()
 	defer r.Mu.Unlock()
 	if r.PlayerInfos[0] == nil {
-		r.PlayerInfos[0] = new(player.Player)
-		r.PlayerInfos[0].Id = p.Id
-		r.PlayerInfos[0].NickName = p.NickName
-		r.PlayerInfos[0].RoomID = p.RoomID
-		r.PlayerInfos[0].DigiMonstor = p.DigiMonstor
-		r.PlayerInfos[0].Sess = p.Sess
+		//r.PlayerInfos[0] = new(player.Player)
+		//r.PlayerInfos[0].Id = p.Id
+		//r.PlayerInfos[0].NickName = p.NickName
+		//r.PlayerInfos[0].RoomID = p.RoomID
+		//r.PlayerInfos[0].DigiMonstor = p.DigiMonstor
+		//r.PlayerInfos[0].Sess = p.Sess
+		r.PlayerInfos[0] = p
 		r.NewSeated = 0
 		p.Seat = 0
 	} else {
@@ -181,13 +202,33 @@ func (r *Room) UpdateRound() { r.round++ }
 
 func (r *Room) GetRound() int32 { return r.round }
 
-func (r *Room) UpdatePlayerInfo(pm *playermanager.PlayerManager, ids ...uint64) {
-	for id := range ids {
-		for i, v := range r.PlayerInfos {
-			if v.Id == uint64(id) {
-				pl, _ := pm.Get(v.Id)
-				r.PlayerInfos[i].DigiMonstor = pl.DigiMonstor
-			}
+func (r *Room) UpdatePlayerInfo(pm *playermanager.PlayerManager, rr *RoundResult) error {
+	for _, deadID := range rr.DeadID {
+		pl, err := pm.Get(deadID)
+		if err != nil {
+			logrus.Println(err)
+			return err
+		}
+		pl.DigiMonstor.IsDead = true
+	}
+
+	r.RCPSet = rr.RulingInfo
+	return nil
+}
+
+func (r *Room) NotifyDead(deadIDList []uint64) {
+	ack := new(pbprotocol.DeadNotifyAck)
+	ack.DeadIds = make([]uint64, 0)
+	ack.DeadIds = append(ack.DeadIds, deadIDList...)
+}
+
+func (r *Room) SendRulingResult() {
+	for attackerID, targets := range r.RCPSet {
+		for targetID := range targets {
+			ack := new(pbprotocol.RulingResultAck)
+			ack.AttackerID = attackerID
+			ack.TargetID = targetID
+			go r.BroadCast("digimon.rulingresult", ack)
 		}
 	}
 }
@@ -402,16 +443,16 @@ func (r *Room) RoundAnalyse() (*RoundResult, error) {
 	if len(tmpATSet) == 0 {
 		return nil, nil
 	}
-	tmpTwoAttackerID := make([]uint64, 0)
-	tmpRoundResult := new(RoundResult)
-	tmpRoundResult.DeadID = make([]uint64, 0)
-	tmpRoundResult.RulingInfo = make(map[uint64]map[uint64]*rulingControlPanel, 0)
+	tmpTwoAttackerIDList := make([]*twoAttacker, 0)
+	rr := new(RoundResult)
+	rr.DeadID = make([]uint64, 0)
+	rr.RulingInfo = make(map[uint64]map[uint64]*rulingControlPanel, 0)
 	for attackerID, targets := range tmpATSet {
-		if isTwoAttackerID(attackerID, tmpTwoAttackerID) {
-			break
-		}
 		apl, _ := r.GetPlayer(attackerID)
 		for _, t := range targets {
+			if isTwoAttackerID(attackerID, t, tmpTwoAttackerIDList) {
+				continue
+			}
 			tpl, _ := r.GetPlayer(t)
 			cond := new(rulingCondition)
 			cond.AID = attackerID
@@ -424,10 +465,7 @@ func (r *Room) RoundAnalyse() (*RoundResult, error) {
 			if deadID, rpcT, err := SeparateRuling(cond); err != nil {
 				return nil, err
 			} else if deadID != 0 {
-				if deadID == attackerID {
-					tmpTwoAttackerID = append(tmpTwoAttackerID, deadID)
-				}
-				tmpRoundResult.DeadID = append(tmpRoundResult.DeadID, deadID)
+				rr.DeadID = append(rr.DeadID, deadID)
 			} else {
 				if rpcT != 0 {
 					tmpRulingControlPanel := new(rulingControlPanel)
@@ -435,14 +473,20 @@ func (r *Room) RoundAnalyse() (*RoundResult, error) {
 					tmpRulingControlPanel.rCP = panel.NewRulingCounterPanel(rpcT)
 				}
 			}
+			if tpl.DigiMonstor.SkillType == player.ATTACK {
+				tmpTwoAttackerID := new(twoAttacker)
+				tmpTwoAttackerID.attackerID = attackerID
+				tmpTwoAttackerID.targetID = t
+				tmpTwoAttackerIDList = append(tmpTwoAttackerIDList, tmpTwoAttackerID)
+			}
 		}
 	}
-	return tmpRoundResult, nil
+	return rr, nil
 }
 
-func isTwoAttackerID(id uint64, listTwoAttacker []uint64) bool {
+func isTwoAttackerID(attackerID uint64, targetID uint64, listTwoAttacker []*twoAttacker) bool {
 	for _, v := range listTwoAttacker {
-		if v == id {
+		if v.attackerID == targetID && v.targetID == attackerID {
 			return true
 		}
 	}
@@ -494,4 +538,50 @@ func SeparateRuling(cond *rulingCondition) (uint64, int32, error) {
 			}
 		}
 	}
+}
+
+func (r *Room) RPCAnalyse(rpcInfo *RPCInfo, id uint64) (*RPCResult, error) {
+	rpcr := new(RPCResult)
+	var rpcSCP panel.Panel
+	var rCP *panel.RulingCounterPanel
+	var attackerID uint64
+	var targetID uint64
+	switch rpcInfo.Role {
+	case player.ATTACKER:
+		r.RCPSet[id][rpcInfo.OtherSideID].rpcSCP.Update(id, rpcInfo.RPC)
+		rpcSCP = r.RCPSet[id][rpcInfo.OtherSideID].rpcSCP
+		rCP = r.RCPSet[id][rpcInfo.OtherSideID].rCP
+		attackerID = id
+		targetID = rpcInfo.OtherSideID
+	case player.TARGET:
+		r.RCPSet[rpcInfo.OtherSideID][id].rpcSCP.Update(id, rpcInfo.RPC)
+		rpcSCP = r.RCPSet[rpcInfo.OtherSideID][id].rpcSCP
+		rCP = r.RCPSet[rpcInfo.OtherSideID][id].rCP
+		attackerID = rpcInfo.OtherSideID
+		targetID = id
+	default:
+		return nil, errorhandler.ERR_PARAMETERINVALID_MSG
+	}
+
+	if rpcSCP.IsEnd() {
+		rpcr.isReady = true
+		winID, err := rpcSCP.RPCCompute()
+		if err != nil {
+			return nil, err
+		}
+		if winID != 0 {
+			rCP.Update()
+		}
+		rpcr.winID = winID
+		rpcr.attackerID = attackerID
+		rpcr.targetID = targetID
+		if rCP.IsEnd() {
+			rpcr.isHaveNext = true
+		} else {
+			rpcr.isHaveNext = false
+		}
+	} else {
+		rpcr.isReady = false
+	}
+	return rpcr, nil
 }

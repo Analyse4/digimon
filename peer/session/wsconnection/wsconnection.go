@@ -140,6 +140,9 @@ func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec, sess *session.Sess
 		}).Error(rv[1].Interface().(error))
 		return
 	}
+	if rv[0].Interface() == nil {
+		return
+	}
 	du := time.Since(t)
 	promeLabel := stdprometheus.Labels{
 		"router": pack.Router,

@@ -115,19 +115,42 @@ message ReleaseSkillAck {
     Hero hero = 2;
 }
 
-message RoundResultAck {
-    message RoundResult {
-        message Judge {
-            uint64 player_id = 1;
-            int32 number = 2;
-        }
-        message ListJudge {
-            repeated Judge judge = 1;
-        }
-        repeated uint64 dead_id = 1;
-        map<uint64, ListJudge> judges = 2;
-    }
-    bool is_end = 1;
-    RoundResult round_result = 2;
-    int32 round = 3;
+//message RoundResultAck {
+//    message RoundResult {
+//        message Judge {
+//            uint64 player_id = 1;
+//            int32 number = 2;
+//        }
+//        message ListJudge {
+//            repeated Judge judge = 1;
+//        }
+//        repeated uint64 dead_id = 1;
+//        map<uint64, ListJudge> judges = 2;
+//    }
+//    bool is_end = 1;
+//    RoundResult round_result = 2;
+//    int32 round = 3;
+//}
+
+message RulingResultAck {
+    uint64 attackerID = 1;
+    uint64 targetID = 2;
+}
+
+message DeadNotifyAck {
+    repeated uint64 dead_ids = 1;
+}
+
+message RPCBattleReq {
+    int32 rpc = 1;
+    int32 role = 2;
+    uint64 other_side_id =3;
+}
+
+message RPCBattleAck {
+    BaseAck base = 1;
+    uint64 last_win_id = 2;
+    bool is_have_next = 3;
+    uint64 attacker_id = 4;
+    uint64 target_id = 5;
 }

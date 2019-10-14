@@ -27,6 +27,17 @@ const (
 	MEGA
 )
 
+const (
+	ATTACKER = iota + 1
+	TARGET
+)
+
+const (
+	ROCK = iota + 1
+	PAPER
+	SCISSORS
+)
+
 type Hero struct {
 	mu            *sync.Mutex
 	Identity      pbprotocol.DigimonIdentity

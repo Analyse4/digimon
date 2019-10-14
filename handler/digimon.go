@@ -375,7 +375,6 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 	}
 	pl.DigiMonstor.SkillType = req.SkillType
 	rm, err := dgm.RoomManager.Get(pl.RoomID)
-	rm.UpdatePlayerInfo(dgm.PlayerManager, pl.Id)
 	if err != nil {
 		logrus.Debug("room not find")
 		ack.Base.Result = errorhandler.ERR_SERVICEBUSY
@@ -384,37 +383,16 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 	}
 	rm.Skills.Update(pl.Seat)
 	if rm.Skills.IsSkillsReady(rm.Type) {
-		bcAck := new(pbprotocol.RoundResultAck)
-		bcAck.RoundResult.DeadId = make([]uint64, 0)
-		bcAck.RoundResult.Judges = make(map[uint64]*pbprotocol.RoundResultAck_RoundResult_ListJudge)
-		if roundResult, err := rm.DeadAnalyse(); err != nil {
+		if roundResult, err := rm.RoundAnalyse(); err != nil {
 			logrus.Debug(err)
 			ack.Base.Result = errorhandler.ERR_PARAMETERINVALID
 			ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_PARAMETERINVALID)
 			return ack, nil
-		} else if rm.IsAllDead() {
-			bcAck.IsEnd = true
-			bcAck.Round = rm.GetRound()
 		} else {
-			rm.UpdateRound()
-			rm.Skills.Refresh()
-			rm.RefreshAllHeroStatus()
-			bcAck.IsEnd = false
-			bcAck.Round = rm.GetRound()
-			bcAck.RoundResult.DeadId = append(bcAck.RoundResult.DeadId, roundResult.DeadID...)
-			for attackerID, targets := range roundResult.FinalJudgeID {
-				tmpTargets := new(pbprotocol.RoundResultAck_RoundResult_ListJudge)
-				tmpTargets.Judge = make([]*pbprotocol.RoundResultAck_RoundResult_Judge, 0)
-				for _, target := range targets {
-					tmpTarget := new(pbprotocol.RoundResultAck_RoundResult_Judge)
-					tmpTarget.PlayerId = target.PlayerID
-					tmpTarget.Number = target.Number
-					tmpTargets.Judge = append(tmpTargets.Judge, tmpTarget)
-				}
-				bcAck.RoundResult.Judges[attackerID] = tmpTargets
-			}
+			rm.UpdatePlayerInfo(dgm.PlayerManager, roundResult)
+			//rm.NotifyDead(roundResult.DeadID)
+			rm.SendRulingResult()
 		}
-		go rm.BroadCast("digimon.roundresult", bcAck)
 	}
 	ack.Base.Result = errorhandler.SUCESS
 	ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)
@@ -427,6 +405,49 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 	ack.Hero.IsEscape = pl.DigiMonstor.IsEscape
 	ack.Hero.IsDead = pl.DigiMonstor.IsDead
 	return ack, nil
+}
+
+func (dgm *Digimon) RPCBattle(sess *session.Session, req *pbprotocol.RPCBattleReq) (*pbprotocol.RPCBattleAck, error) {
+	ack := new(pbprotocol.RPCBattleAck)
+	ack.Base = new(pbprotocol.BaseAck)
+	playerID := sess.Get("PLAYERID")
+	if playerID == nil {
+		logrus.Debug("user not login")
+		ack.Base.Result = errorhandler.ERR_USERNOTLOGIN
+		ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_USERNOTLOGIN)
+		return ack, nil
+	}
+	pl, err := dgm.PlayerManager.Get(playerID.(uint64))
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			"player_id": playerID,
+		}).Debug(err)
+	}
+	rm, err := dgm.RoomManager.Get(pl.RoomID)
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			"player_id": playerID,
+			"room_id":   pl.RoomID,
+		}).Debug(err)
+	}
+	rpcInfo := new(room.RPCInfo)
+	rpcInfo.Role = req.Role
+	rpcInfo.RPC = req.Rpc
+	rpcInfo.OtherSideID = req.OtherSideId
+	rpcResult, err := rm.RPCAnalyse(rpcInfo, pl.Id)
+	if err != nil {
+		logrus.Debug(err)
+		ack.Base.Result = errorhandler.ERR_SERVICEBUSY
+		ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_SERVICEBUSY)
+		return ack, nil
+	}
+	if rpcResult.IsReady {
+		ack.LastWinId = rpcResult.WinID
+		ack.IsHaveNext = rpcResult.IsHaveNext
+		ack.AttackerId = rpcResult.AttackerID
+		ack.TargetId = rpcResult.TargetID
+	}
+	return nil, nil
 }
 
 //TODO: verification is not accurate enough
