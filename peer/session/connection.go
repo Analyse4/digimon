@@ -16,4 +16,5 @@ type Connection interface {
 	GetWaitGroup() *sync.WaitGroup
 	Close()
 	Send([]byte)
+	CloseSendBuffer()
 }

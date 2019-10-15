@@ -137,8 +137,8 @@ message RulingResultAck {
     uint64 targetID = 2;
 }
 
-message DeadNotifyAck {
-    repeated uint64 dead_ids = 1;
+message EndGameAck {
+    uint64 winner_id = 1;
 }
 
 message RPCBattleReq {
@@ -153,4 +153,9 @@ message RPCBattleAck {
     bool is_have_next = 3;
     uint64 attacker_id = 4;
     uint64 target_id = 5;
+}
+
+message PlayerLeaveAck {
+    uint64 room_id = 1;
+    int32 seat = 2;
 }

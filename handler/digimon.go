@@ -99,7 +99,14 @@ func (dgm *Digimon) CleanerListen() {
 					roomID := player.RoomID
 					rm, err = dgm.RoomManager.Get(roomID)
 					if err == nil {
+						seat := rm.PlayerIDToSeat(cmt.PlayerID)
 						rm.DeletePlayer(cmt.PlayerID)
+
+						ack := new(pbprotocol.PlayerLeaveAck)
+						ack.RoomId = rm.Id
+						ack.Seat = seat
+						rm.BroadCast("digimon.playerleave", ack)
+
 						dao.UpdateRoomInfo(rm)
 						if rm.CurrentNum == 0 {
 							rm.IsOpen = false
@@ -115,6 +122,7 @@ func (dgm *Digimon) CleanerListen() {
 				}
 			}
 			sess := dgm.SessionManager.Get(cmt.ConnID)
+			sess.Conn.CloseSendBuffer()
 			sess.Conn.Close()
 			dgm.SessionManager.Delete(cmt.ConnID)
 
@@ -298,12 +306,14 @@ func (dgm *Digimon) JoinRoom(sess *session.Session, req *pbprotocol.JoinRoomReq)
 		ack.RoomInfo.PlayerInfos = append(ack.RoomInfo.PlayerInfos, tmpPlayerInfo)
 	}
 
+	go room.BroadCast("digimon.joinroom", ack)
+
 	log.WithFields(logrus.Fields{
 		"room_id":            room.Id,
 		"current_player_num": room.CurrentNum,
 	}).Debug("room info")
 
-	return ack, nil
+	return nil, nil
 }
 
 func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseSkillReq) (*pbprotocol.ReleaseSkillAck, error) {
@@ -390,27 +400,18 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 			return ack, nil
 		} else {
 			rm.UpdatePlayerInfo(dgm.PlayerManager, roundResult)
-			if len(roundResult.RulingInfo) == 0 {
+			if rm.IsGameEnd() {
+				endGameAck := new(pbprotocol.EndGameAck)
+				endGameAck.WinnerId = rm.GetWinner()
+				go rm.BroadCast("digimon.endgame", endGameAck)
+			} else if len(roundResult.RulingInfo) == 0 {
 				rm.RefreshAllHeroStatus()
 				rm.UpdateRound()
 				rm.Skills.Refresh()
 				rm.RulingNum = 0
 				rm.RefreshRPCSet()
 
-				startGameAck := new(pbprotocol.StartGameAck)
-				startGameAck.RoomInfo.PlayerInfos = make([]*pbprotocol.PlayerInfo, 0)
-				startGameAck.RoomInfo.Round = rm.GetRound()
-				for i, pl := range rm.PlayerInfos {
-					startGameAck.RoomInfo.PlayerInfos[i].Hero = new(pbprotocol.Hero)
-					startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillTargets = make([]uint64, 0)
-
-					startGameAck.RoomInfo.PlayerInfos[i].Hero.IsDead = pl.DigiMonstor.IsDead
-					startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillType = pl.DigiMonstor.SkillType
-					startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillLevel = pl.DigiMonstor.SkillLevel
-					startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillName = pl.DigiMonstor.SkillName
-					startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillTargets = append(startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillTargets, pl.DigiMonstor.SkillTargets...)
-				}
-				go rm.BroadCast("digimon.startgame", startGameAck)
+				sendNextRound(rm)
 			} else {
 				rm.SendRulingResult()
 			}
@@ -428,6 +429,60 @@ func (dgm *Digimon) ReleaseSkill(sess *session.Session, req *pbprotocol.ReleaseS
 	ack.Hero.IsDead = pl.DigiMonstor.IsDead
 	return ack, nil
 }
+
+//func (dgm *Digimon) RPCBattle(sess *session.Session, req *pbprotocol.RPCBattleReq) (*pbprotocol.RPCBattleAck, error) {
+//	ack := new(pbprotocol.RPCBattleAck)
+//	ack.Base = new(pbprotocol.BaseAck)
+//	playerID := sess.Get("PLAYERID")
+//	if playerID == nil {
+//		logrus.Debug("user not login")
+//		ack.Base.Result = errorhandler.ERR_USERNOTLOGIN
+//		ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_USERNOTLOGIN)
+//		return ack, nil
+//	}
+//	pl, err := dgm.PlayerManager.Get(playerID.(uint64))
+//	if err != nil {
+//		log.WithFields(logrus.Fields{
+//			"player_id": playerID,
+//		}).Debug(err)
+//	}
+//	rm, err := dgm.RoomManager.Get(pl.RoomID)
+//	if err != nil {
+//		log.WithFields(logrus.Fields{
+//			"player_id": playerID,
+//			"room_id":   pl.RoomID,
+//		}).Debug(err)
+//	}
+//	rpcInfo := new(room.RPCInfo)
+//	rpcInfo.Role = req.Role
+//	rpcInfo.RPC = req.Rpc
+//	rpcInfo.OtherSideID = req.OtherSideId
+//	rpcResult, err := rm.RPCAnalyse(rpcInfo, pl.Id)
+//	if err != nil {
+//		logrus.Debug(err)
+//		ack.Base.Result = errorhandler.ERR_SERVICEBUSY
+//		ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_SERVICEBUSY)
+//		return ack, nil
+//	}
+//	if rpcResult.IsReady {
+//		rm.RefreshRPCSPanel(rpcResult.AttackerID, rpcResult.TargetID)
+//		if rpcResult.IsEnd {
+//			rm.RefreshAllHeroStatus()
+//			rm.UpdateRound()
+//			rm.Skills.Refresh()
+//			rm.RulingNum = 0
+//			rm.RefreshRPCSet()
+//
+//			sendNextRound(rm)
+//		}
+//		ack.LastWinId = rpcResult.WinID
+//		ack.IsHaveNext = rpcResult.IsHaveNext
+//		ack.AttackerId = rpcResult.AttackerID
+//		ack.TargetId = rpcResult.TargetID
+//		go rm.BroadCast("digimon.rpcbattle", ack)
+//	}
+//	return nil, nil
+//}
 
 func (dgm *Digimon) RPCBattle(sess *session.Session, req *pbprotocol.RPCBattleReq) (*pbprotocol.RPCBattleAck, error) {
 	ack := new(pbprotocol.RPCBattleAck)
@@ -452,47 +507,90 @@ func (dgm *Digimon) RPCBattle(sess *session.Session, req *pbprotocol.RPCBattleRe
 			"room_id":   pl.RoomID,
 		}).Debug(err)
 	}
-	rpcInfo := new(room.RPCInfo)
-	rpcInfo.Role = req.Role
-	rpcInfo.RPC = req.Rpc
-	rpcInfo.OtherSideID = req.OtherSideId
-	rpcResult, err := rm.RPCAnalyse(rpcInfo, pl.Id)
-	if err != nil {
-		logrus.Debug(err)
-		ack.Base.Result = errorhandler.ERR_SERVICEBUSY
-		ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_SERVICEBUSY)
-		return ack, nil
+	var attackerID uint64
+	var targetID uint64
+	if req.Role == player.ATTACKER {
+		attackerID = pl.Id
+		targetID = req.OtherSideId
+	} else {
+		attackerID = req.OtherSideId
+		targetID = pl.Id
 	}
-	if rpcResult.IsReady {
-		if rpcResult.IsEnd {
-			rm.RefreshAllHeroStatus()
-			rm.UpdateRound()
-			rm.Skills.Refresh()
-			rm.RulingNum = 0
-			rm.RefreshRPCSet()
 
-			startGameAck := new(pbprotocol.StartGameAck)
-			startGameAck.RoomInfo.PlayerInfos = make([]*pbprotocol.PlayerInfo, 0)
-			startGameAck.RoomInfo.Round = rm.GetRound()
-			for i, pl := range rm.PlayerInfos {
-				startGameAck.RoomInfo.PlayerInfos[i].Hero = new(pbprotocol.Hero)
-				startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillTargets = make([]uint64, 0)
-
-				startGameAck.RoomInfo.PlayerInfos[i].Hero.IsDead = pl.DigiMonstor.IsDead
-				startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillType = pl.DigiMonstor.SkillType
-				startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillLevel = pl.DigiMonstor.SkillLevel
-				startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillName = pl.DigiMonstor.SkillName
-				startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillTargets = append(startGameAck.RoomInfo.PlayerInfos[i].Hero.SkillTargets, pl.DigiMonstor.SkillTargets...)
-			}
-			go rm.BroadCast("digimon.startgame", startGameAck)
+	rm.RPCSPanelUpdate(attackerID, targetID, pl.Id, req.Rpc)
+	if rm.IsRPCSPanelReady(attackerID, targetID, pl.Id) {
+		rm.RefreshRPCSPanel(attackerID, targetID)
+		rpcReult, err := rm.RPCAnalyse(attackerID, targetID, pl.Id)
+		if err != nil {
+			logrus.Debug(err)
+			ack.Base.Result = errorhandler.ERR_PARAMETERINVALID
+			ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.ERR_PARAMETERINVALID)
+			return ack, nil
 		}
-		ack.LastWinId = rpcResult.WinID
-		ack.IsHaveNext = rpcResult.IsHaveNext
-		ack.AttackerId = rpcResult.AttackerID
-		ack.TargetId = rpcResult.TargetID
-		go rm.BroadCast("digimon.rbcbattle", ack)
+		if !rpcReult.IsHaveNext {
+			if rpcReult.IsRoundEnd {
+				if rpcReult.IsDead {
+					deadPl, _ := dgm.PlayerManager.Get(attackerID)
+					deadPl.DigiMonstor.IsDead = true
+					if rm.IsGameEnd() {
+						endGameAck := new(pbprotocol.EndGameAck)
+						endGameAck.WinnerId = rm.GetWinner()
+						go rm.BroadCast("digimon.endgame", endGameAck)
+					}
+				}
+				rm.RefreshAllHeroStatus()
+				rm.UpdateRound()
+				rm.Skills.Refresh()
+				rm.RulingNum = 0
+				rm.RefreshRPCSet()
+
+				sendNextRound(rm)
+			}
+			ack.IsHaveNext = false
+			rm.RefreshRPCRPanel(attackerID, targetID)
+		} else {
+			ack.IsHaveNext = true
+			ack.AttackerId = attackerID
+			ack.TargetId = targetID
+		}
+		ack.Base.Result = errorhandler.SUCESS
+		ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)
+		ack.LastWinId = rpcReult.CurrentWinID
+		go rm.BroadCast("digimon.rpcbattle", ack)
 	}
 	return nil, nil
+}
+
+func sendNextRound(rm *room.Room) {
+	startGameAck := new(pbprotocol.StartGameAck)
+	startGameAck.RoomInfo = new(pbprotocol.RoomInfo)
+	startGameAck.RoomInfo.PlayerInfos = make([]*pbprotocol.PlayerInfo, 0)
+	startGameAck.RoomInfo.RoomId = rm.Id
+	startGameAck.RoomInfo.Type = rm.Type
+	startGameAck.RoomInfo.IsStart = rm.IsStart
+	startGameAck.RoomInfo.CurrentPlayerNum = rm.CurrentNum
+	startGameAck.RoomInfo.Round = rm.GetRound()
+	for _, pl := range rm.PlayerInfos {
+		tmpPl := new(pbprotocol.PlayerInfo)
+		tmpPl.Hero = new(pbprotocol.Hero)
+		tmpPl.Hero.SkillTargets = make([]uint64, 0)
+
+		tmpPl.Id = pl.Id
+		tmpPl.RoomId = pl.RoomID
+		tmpPl.Seat = pl.Seat
+		tmpPl.Nickname = pl.NickName
+		tmpPl.Hero.Identity = pl.DigiMonstor.Identity
+		tmpPl.Hero.IdentityLevel = pl.DigiMonstor.IdentityLevel
+		tmpPl.Hero.SkillPoint = pl.DigiMonstor.SkillPoint
+		tmpPl.Hero.IsEscape = pl.DigiMonstor.IsEscape
+		tmpPl.Hero.IsDead = pl.DigiMonstor.IsDead
+		tmpPl.Hero.SkillType = pl.DigiMonstor.SkillType
+		tmpPl.Hero.SkillLevel = pl.DigiMonstor.SkillLevel
+		tmpPl.Hero.SkillName = pl.DigiMonstor.SkillName
+		tmpPl.Hero.SkillTargets = append(tmpPl.Hero.SkillTargets, pl.DigiMonstor.SkillTargets...)
+		startGameAck.RoomInfo.PlayerInfos = append(startGameAck.RoomInfo.PlayerInfos, tmpPl)
+	}
+	go rm.BroadCast("digimon.startgame", startGameAck)
 }
 
 //TODO: verification is not accurate enough

@@ -48,7 +48,7 @@ func (c *WSConnection) ReadLoop(cd codec.Codec, sess *session.Session) {
 				"connection_id": c.ID,
 			}).Debug(err)
 
-			close(c.SendBuffer)
+			//close(c.SendBuffer)
 			c.wg.Done()
 
 			log.WithFields(logrus.Fields{
@@ -72,7 +72,7 @@ func (c *WSConnection) WriteLoop() {
 		select {
 		case data, ok := <-c.SendBuffer:
 			if !ok {
-				c.wg.Done()
+				//c.wg.Done()
 
 				log.WithFields(logrus.Fields{
 					"connection_id": c.ID,
@@ -84,7 +84,7 @@ func (c *WSConnection) WriteLoop() {
 				if err != nil {
 					log.WithFields(logrus.Fields{
 						"connection_id": c.ID,
-					}).Error(err)
+					}).Warn(err)
 				}
 
 				log.WithFields(logrus.Fields{
@@ -140,20 +140,30 @@ func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec, sess *session.Sess
 		}).Error(rv[1].Interface().(error))
 		return
 	}
-	if rv[0].Interface() == nil {
-		return
-	}
 	du := time.Since(t)
-	promeLabel := stdprometheus.Labels{
-		"router": pack.Router,
-		"result": strconv.Itoa(int(rv[0].Elem().Field(0).Elem().Field(0).Int())),
+
+	var promeLabel stdprometheus.Labels
+	if rv[0].IsNil() {
+		promeLabel = stdprometheus.Labels{
+			"router": pack.Router,
+			"result": "-1",
+		}
+	} else {
+		promeLabel = stdprometheus.Labels{
+			"router": pack.Router,
+			"result": strconv.Itoa(int(rv[0].Elem().Field(0).Elem().Field(0).Int())),
+		}
 	}
+
 	prometheus.GethandlerLatencySummary().With(promeLabel).Observe(du.Seconds())
 	ack, _ := cd.Marshal(pack.Router, rv[0].Interface())
 	if err != nil {
 		log.WithFields(logrus.Fields{
 			"func": "marshal",
 		}).Error(err)
+	}
+	if rv[0].IsNil() {
+		return
 	}
 	c.SendBuffer <- ack
 }
@@ -164,4 +174,8 @@ func (c *WSConnection) Close() {
 
 func (c *WSConnection) Send(data []byte) {
 	c.SendBuffer <- data
+}
+
+func (c *WSConnection) CloseSendBuffer() {
+	close(c.SendBuffer)
 }

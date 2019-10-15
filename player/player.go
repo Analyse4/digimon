@@ -124,8 +124,8 @@ func (p *Player) GetAttackName(typ int32) string {
 }
 
 func (h *Hero) SetSkillTargets(targets []uint64) {
-	for i, v := range targets {
-		h.SkillTargets[i] = v
+	for _, v := range targets {
+		h.SkillTargets = append(h.SkillTargets, v)
 	}
 }
 

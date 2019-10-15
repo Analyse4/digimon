@@ -75,12 +75,10 @@ type RPCInfo struct {
 }
 
 type RPCResult struct {
-	IsReady    bool
-	IsEnd      bool
-	WinID      uint64
-	IsHaveNext bool
-	AttackerID uint64
-	TargetID   uint64
+	IsDead       bool
+	IsRoundEnd   bool
+	CurrentWinID uint64
+	IsHaveNext   bool
 }
 
 type skillSet struct {
@@ -163,8 +161,23 @@ func (r *Room) DeletePlayer(id uint64) {
 	r.IsStart = false
 }
 
+func (r *Room) PlayerIDToSeat(id uint64) int32 {
+	for s, pl := range r.PlayerInfos {
+		if pl == nil {
+			continue
+		}
+		if pl.Id == id {
+			return int32(s)
+		}
+	}
+	return -1
+}
+
 func (r *Room) BroadCast(router string, data interface{}) {
 	for _, p := range r.PlayerInfos {
+		if p == nil {
+			continue
+		}
 		p.Send(router, data)
 	}
 }
@@ -219,16 +232,12 @@ func (r *Room) UpdatePlayerInfo(pm *playermanager.PlayerManager, rr *RoundResult
 	return nil
 }
 
-func (r *Room) NotifyDead(deadIDList []uint64) {
-	ack := new(pbprotocol.DeadNotifyAck)
-	ack.DeadIds = make([]uint64, 0)
-	ack.DeadIds = append(ack.DeadIds, deadIDList...)
-}
-
 func (r *Room) SendRulingResult() {
 	for attackerID, targets := range r.RCPSet {
-		for targetID := range targets {
-			atomic.AddUint64(&r.RulingNum, 1)
+		for targetID, p := range targets {
+			for i := 0; i < p.rCP.GetNum(); i++ {
+				atomic.AddUint64(&r.RulingNum, 1)
+			}
 			ack := new(pbprotocol.RulingResultAck)
 			ack.AttackerID = attackerID
 			ack.TargetID = targetID
@@ -421,13 +430,26 @@ func (r *Room) GetPlayer(id uint64) (*player.Player, error) {
 	return nil, fmt.Errorf("player not found")
 }
 
-func (r *Room) IsAllDead() bool {
+func (r *Room) IsGameEnd() bool {
+	var counter int32
 	for _, v := range r.PlayerInfos {
 		if v.DigiMonstor.IsDead == false {
-			return false
+			counter++
 		}
 	}
+	if counter != 1 {
+		return false
+	}
 	return true
+}
+
+func (r *Room) GetWinner() uint64 {
+	for _, pl := range r.PlayerInfos {
+		if !pl.DigiMonstor.IsDead {
+			return pl.Id
+		}
+	}
+	return 0
 }
 
 func (r *Room) RefreshAllHeroStatus() {
@@ -438,6 +460,10 @@ func (r *Room) RefreshAllHeroStatus() {
 
 func (r *Room) RoundAnalyse() (*RoundResult, error) {
 	tmpATSet := make(map[uint64][]uint64)
+	tmpTwoAttackerIDList := make([]*twoAttacker, 0)
+	rr := new(RoundResult)
+	rr.DeadID = make([]uint64, 0)
+	rr.RulingInfo = make(map[uint64]map[uint64]*rulingControlPanel, 0)
 	for _, v := range r.PlayerInfos {
 		if v.DigiMonstor.SkillType == player.ATTACK {
 			tmpATSet[v.Id] = make([]uint64, 0)
@@ -445,12 +471,8 @@ func (r *Room) RoundAnalyse() (*RoundResult, error) {
 		}
 	}
 	if len(tmpATSet) == 0 {
-		return nil, nil
+		return rr, nil
 	}
-	tmpTwoAttackerIDList := make([]*twoAttacker, 0)
-	rr := new(RoundResult)
-	rr.DeadID = make([]uint64, 0)
-	rr.RulingInfo = make(map[uint64]map[uint64]*rulingControlPanel, 0)
 	for attackerID, targets := range tmpATSet {
 		apl, _ := r.GetPlayer(attackerID)
 		for _, t := range targets {
@@ -463,7 +485,7 @@ func (r *Room) RoundAnalyse() (*RoundResult, error) {
 			cond.TID = t
 			cond.AIdentityLevel = apl.DigiMonstor.IdentityLevel
 			cond.ASkillLevel = apl.DigiMonstor.SkillLevel
-			cond.TIdentityLevel = tpl.DigiMonstor.SkillLevel
+			cond.TIdentityLevel = tpl.DigiMonstor.IdentityLevel
 			cond.TSkillType = tpl.DigiMonstor.SkillType
 			cond.TSkillLevel = tpl.DigiMonstor.SkillLevel
 			if deadID, rpcT, err := SeparateRuling(cond); err != nil {
@@ -475,6 +497,7 @@ func (r *Room) RoundAnalyse() (*RoundResult, error) {
 					tmpRulingControlPanel := new(rulingControlPanel)
 					tmpRulingControlPanel.rpcSCP = panel.NewRpcSelectionCounterPanel()
 					tmpRulingControlPanel.rCP = panel.NewRulingCounterPanel(rpcT)
+					rr.RulingInfo[attackerID] = make(map[uint64]*rulingControlPanel, 0)
 					rr.RulingInfo[attackerID][t] = tmpRulingControlPanel
 				}
 			}
@@ -545,58 +568,116 @@ func SeparateRuling(cond *rulingCondition) (uint64, int32, error) {
 	}
 }
 
-func (r *Room) RPCAnalyse(rpcInfo *RPCInfo, id uint64) (*RPCResult, error) {
-	rpcr := new(RPCResult)
+//func (r *Room) RPCAnalyse(rpcInfo *RPCInfo, id uint64) (*RPCResult, error) {
+//	rpcr := new(RPCResult)
+//	var rpcSCP panel.Panel
+//	var rCP *panel.RulingCounterPanel
+//	var attackerID uint64
+//	var targetID uint64
+//	switch rpcInfo.Role {
+//	case player.ATTACKER:
+//		r.RCPSet[id][rpcInfo.OtherSideID].rpcSCP.Update(id, rpcInfo.RPC)
+//		rpcSCP = r.RCPSet[id][rpcInfo.OtherSideID].rpcSCP
+//		rCP = r.RCPSet[id][rpcInfo.OtherSideID].rCP
+//		attackerID = id
+//		targetID = rpcInfo.OtherSideID
+//	case player.TARGET:
+//		r.RCPSet[rpcInfo.OtherSideID][id].rpcSCP.Update(id, rpcInfo.RPC)
+//		rpcSCP = r.RCPSet[rpcInfo.OtherSideID][id].rpcSCP
+//		rCP = r.RCPSet[rpcInfo.OtherSideID][id].rCP
+//		attackerID = rpcInfo.OtherSideID
+//		targetID = id
+//	default:
+//		return nil, errorhandler.ERR_PARAMETERINVALID_MSG
+//	}
+//
+//	if rpcSCP.IsEnd() {
+//		rpcr.IsReady = true
+//		winID, err := rpcSCP.RPCCompute()
+//		if err != nil {
+//			return nil, err
+//		}
+//		if winID != 0 {
+//			rCP.Update()
+//			atomic.AddUint64(&r.RulingNum, ^uint64(0))
+//		}
+//		rpcr.WinID = winID
+//		rpcr.AttackerID = attackerID
+//		rpcr.TargetID = targetID
+//		if rCP.IsEnd() {
+//			rpcr.IsHaveNext = true
+//		} else {
+//			rpcr.IsHaveNext = false
+//		}
+//		if atomic.LoadUint64(&r.RulingNum) == 0 {
+//			rpcr.IsEnd = true
+//		}
+//	} else {
+//		rpcr.IsReady = false
+//	}
+//	return rpcr, nil
+//}
+
+func (r *Room) RPCAnalyse(attackerID, targetID, id uint64) (*RPCResult, error) {
 	var rpcSCP panel.Panel
 	var rCP *panel.RulingCounterPanel
-	var attackerID uint64
-	var targetID uint64
-	switch rpcInfo.Role {
-	case player.ATTACKER:
-		r.RCPSet[id][rpcInfo.OtherSideID].rpcSCP.Update(id, rpcInfo.RPC)
-		rpcSCP = r.RCPSet[id][rpcInfo.OtherSideID].rpcSCP
-		rCP = r.RCPSet[id][rpcInfo.OtherSideID].rCP
-		attackerID = id
-		targetID = rpcInfo.OtherSideID
-	case player.TARGET:
-		r.RCPSet[rpcInfo.OtherSideID][id].rpcSCP.Update(id, rpcInfo.RPC)
-		rpcSCP = r.RCPSet[rpcInfo.OtherSideID][id].rpcSCP
-		rCP = r.RCPSet[rpcInfo.OtherSideID][id].rCP
-		attackerID = rpcInfo.OtherSideID
-		targetID = id
-	default:
+	rpcResult := new(RPCResult)
+	rpcSCP = r.RCPSet[attackerID][targetID].rpcSCP
+	rCP = r.RCPSet[attackerID][targetID].rCP
+	winID, err := rpcSCP.RPCCompute()
+	if err != nil {
 		return nil, errorhandler.ERR_PARAMETERINVALID_MSG
 	}
+	rpcResult.CurrentWinID = winID
 
-	if rpcSCP.IsEnd() {
-		rpcr.IsReady = true
-		winID, err := rpcSCP.RPCCompute()
-		if err != nil {
-			return nil, err
-		}
-		if winID != 0 {
-			rCP.Update()
-			atomic.AddUint64(&r.RulingNum, ^uint64(0))
-		}
-		rpcr.WinID = winID
-		rpcr.AttackerID = attackerID
-		rpcr.TargetID = targetID
-		if rCP.IsEnd() {
-			rpcr.IsHaveNext = true
+	if winID == 0 {
+		rpcResult.IsDead = false
+		rpcResult.IsHaveNext = true
+		rpcResult.IsRoundEnd = false
+	} else {
+		rCP.Update(winID)
+		atomic.AddUint64(&r.RulingNum, ^uint64(0))
+	}
+
+	if rCP.IsBattleEnd() {
+		rpcResult.IsHaveNext = false
+		if rCP.IsAttackerWin(attackerID) {
+			rpcResult.IsDead = true
 		} else {
-			rpcr.IsHaveNext = false
+			rpcResult.IsDead = false
+
 		}
 		if atomic.LoadUint64(&r.RulingNum) == 0 {
-			rpcr.IsEnd = true
+			rpcResult.IsRoundEnd = true
+		} else {
+			rpcResult.IsRoundEnd = false
 		}
 	} else {
-		rpcr.IsReady = false
+		rpcResult.IsDead = false
+		rpcResult.IsRoundEnd = false
+		rpcResult.IsHaveNext = true
 	}
-	return rpcr, nil
+	return rpcResult, nil
 }
 
 func (r *Room) RefreshRPCSet() {
 	for k := range r.RCPSet {
 		delete(r.RCPSet, k)
 	}
+}
+
+func (r *Room) RefreshRPCRPanel(attackerID uint64, targetID uint64) {
+	r.RCPSet[attackerID][targetID].rCP.Refresh()
+}
+
+func (r *Room) RefreshRPCSPanel(attackerID uint64, targetID uint64) {
+	r.RCPSet[attackerID][targetID].rpcSCP.Refresh()
+}
+
+func (r *Room) RPCSPanelUpdate(attackerID, targetID, plID uint64, rpc int32) {
+	r.RCPSet[attackerID][targetID].rpcSCP.Update(plID, rpc)
+}
+
+func (r *Room) IsRPCSPanelReady(attackerID, targetID, plID uint64) bool {
+	return r.RCPSet[attackerID][targetID].rpcSCP.IsEnd()
 }

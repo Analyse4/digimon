@@ -27,7 +27,7 @@ func (rpcSCP *rpcSelectionCounterPanel) Update(id uint64, rpc int32) {
 func (rpcSCP *rpcSelectionCounterPanel) IsEnd() bool {
 	rpcSCP.mu.Lock()
 	defer rpcSCP.mu.Unlock()
-	if len(rpcSCP.counter) <= 2 {
+	if len(rpcSCP.counter) < 2 {
 		return false
 	}
 	for _, r := range rpcSCP.counter {

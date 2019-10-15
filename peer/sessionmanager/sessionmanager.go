@@ -89,7 +89,7 @@ func (sm *SessionManager) Add(sess *session.Session) {
 func (sm *SessionManager) GetCurrentConnID() int64 { return sm.currentID }
 
 func (sm *SessionManager) connInit(sess *session.Session) {
-	sess.Conn.GetWaitGroup().Add(2)
+	sess.Conn.GetWaitGroup().Add(1)
 	go sess.Conn.ReadLoop(sm.codec, sess)
 	go sess.Conn.WriteLoop()
 	go func() {

@@ -1,24 +1,33 @@
 package panel
 
 type RulingCounterPanel struct {
-	counter []bool
+	counter []uint64
 }
 
 func NewRulingCounterPanel(num int32) *RulingCounterPanel {
-	return &RulingCounterPanel{counter: make([]bool, num)}
+	return &RulingCounterPanel{counter: make([]uint64, num)}
 }
 
-func (rCP *RulingCounterPanel) Update() {
+func (rCP *RulingCounterPanel) Update(winID uint64) {
 	for i, v := range rCP.counter {
-		if v == false {
-			rCP.counter[i] = true
+		if v == 0 {
+			rCP.counter[i] = winID
 		}
 	}
 }
 
-func (rCP *RulingCounterPanel) IsEnd() bool {
+func (rCP *RulingCounterPanel) IsAttackerWin(attackerID uint64) bool {
 	for _, v := range rCP.counter {
-		if v == false {
+		if v != attackerID {
+			return false
+		}
+	}
+	return true
+}
+
+func (rCP *RulingCounterPanel) IsBattleEnd() bool {
+	for _, v := range rCP.counter {
+		if v == 0 {
 			return false
 		}
 	}
@@ -27,4 +36,8 @@ func (rCP *RulingCounterPanel) IsEnd() bool {
 
 func (rCP *RulingCounterPanel) Refresh() {
 	rCP.counter = nil
+}
+
+func (rCP *RulingCounterPanel) GetNum() int {
+	return len(rCP.counter)
 }
