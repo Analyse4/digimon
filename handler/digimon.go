@@ -519,7 +519,6 @@ func (dgm *Digimon) RPCBattle(sess *session.Session, req *pbprotocol.RPCBattleRe
 
 	rm.RPCSPanelUpdate(attackerID, targetID, pl.Id, req.Rpc)
 	if rm.IsRPCSPanelReady(attackerID, targetID, pl.Id) {
-		rm.RefreshRPCSPanel(attackerID, targetID)
 		rpcReult, err := rm.RPCAnalyse(attackerID, targetID, pl.Id)
 		if err != nil {
 			logrus.Debug(err)
@@ -528,14 +527,22 @@ func (dgm *Digimon) RPCBattle(sess *session.Session, req *pbprotocol.RPCBattleRe
 			return ack, nil
 		}
 		if !rpcReult.IsHaveNext {
+			ack.IsHaveNext = false
+			rm.RefreshRPCRPanel(attackerID, targetID)
 			if rpcReult.IsRoundEnd {
 				if rpcReult.IsDead {
-					deadPl, _ := dgm.PlayerManager.Get(attackerID)
+					deadPl, _ := dgm.PlayerManager.Get(targetID)
 					deadPl.DigiMonstor.IsDead = true
 					if rm.IsGameEnd() {
+						ack.Base.Result = errorhandler.SUCESS
+						ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)
+						ack.LastWinId = rpcReult.CurrentWinID
+						go rm.BroadCast("digimon.rpcbattle", ack)
+
 						endGameAck := new(pbprotocol.EndGameAck)
 						endGameAck.WinnerId = rm.GetWinner()
 						go rm.BroadCast("digimon.endgame", endGameAck)
+						return nil, nil
 					}
 				}
 				rm.RefreshAllHeroStatus()
@@ -546,8 +553,6 @@ func (dgm *Digimon) RPCBattle(sess *session.Session, req *pbprotocol.RPCBattleRe
 
 				sendNextRound(rm)
 			}
-			ack.IsHaveNext = false
-			rm.RefreshRPCRPanel(attackerID, targetID)
 		} else {
 			ack.IsHaveNext = true
 			ack.AttackerId = attackerID
@@ -557,6 +562,10 @@ func (dgm *Digimon) RPCBattle(sess *session.Session, req *pbprotocol.RPCBattleRe
 		ack.Base.Msg = errorhandler.GetErrMsg(errorhandler.SUCESS)
 		ack.LastWinId = rpcReult.CurrentWinID
 		go rm.BroadCast("digimon.rpcbattle", ack)
+
+		if !rpcReult.IsRoundEnd {
+			rm.RefreshRPCSPanel(attackerID, targetID)
+		}
 	}
 	return nil, nil
 }

@@ -488,6 +488,7 @@ func (r *Room) RoundAnalyse() (*RoundResult, error) {
 			cond.TIdentityLevel = tpl.DigiMonstor.IdentityLevel
 			cond.TSkillType = tpl.DigiMonstor.SkillType
 			cond.TSkillLevel = tpl.DigiMonstor.SkillLevel
+			cond.TEscape = tpl.DigiMonstor.IsEscape
 			if deadID, rpcT, err := SeparateRuling(cond); err != nil {
 				return nil, err
 			} else if deadID != 0 {

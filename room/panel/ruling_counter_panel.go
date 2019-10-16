@@ -12,6 +12,7 @@ func (rCP *RulingCounterPanel) Update(winID uint64) {
 	for i, v := range rCP.counter {
 		if v == 0 {
 			rCP.counter[i] = winID
+			return
 		}
 	}
 }

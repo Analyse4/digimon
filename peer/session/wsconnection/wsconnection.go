@@ -146,7 +146,7 @@ func (c *WSConnection) ProcessMsg(msg []byte, cd codec.Codec, sess *session.Sess
 	if rv[0].IsNil() {
 		promeLabel = stdprometheus.Labels{
 			"router": pack.Router,
-			"result": "-1",
+			"result": "0",
 		}
 	} else {
 		promeLabel = stdprometheus.Labels{
