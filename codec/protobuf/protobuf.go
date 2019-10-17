@@ -1,9 +1,9 @@
 package protobuf
 
 import (
-	"digimon/pbprotocol"
-	"digimon/svcregister"
 	"fmt"
+	"github.com/Analyse4/digimon/pbprotocol"
+	"github.com/Analyse4/digimon/svcregister"
 	"github.com/golang/protobuf/proto"
 	"reflect"
 )

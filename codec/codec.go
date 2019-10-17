@@ -1,7 +1,7 @@
 package codec
 
 import (
-	"digimon/codec/protobuf"
+	"github.com/Analyse4/digimon/codec/protobuf"
 )
 
 type Codec interface {

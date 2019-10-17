@@ -1,12 +1,12 @@
 package room
 
 import (
-	"digimon/errorhandler"
-	"digimon/pbprotocol"
-	"digimon/player"
-	"digimon/playermanager"
-	"digimon/room/panel"
 	"fmt"
+	"github.com/Analyse4/digimon/errorhandler"
+	"github.com/Analyse4/digimon/pbprotocol"
+	"github.com/Analyse4/digimon/player"
+	"github.com/Analyse4/digimon/playermanager"
+	"github.com/Analyse4/digimon/room/panel"
 	"github.com/sirupsen/logrus"
 	"math"
 	"sync"

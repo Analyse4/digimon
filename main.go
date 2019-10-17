@@ -1,11 +1,11 @@
 package main
 
 import (
-	"digimon/config"
-	"digimon/dao"
-	"digimon/handler"
-	"digimon/prometheus"
-	_ "digimon/svcregister"
+	"github.com/Analyse4/digimon/config"
+	"github.com/Analyse4/digimon/dao"
+	"github.com/Analyse4/digimon/handler"
+	"github.com/Analyse4/digimon/prometheus"
+	_ "github.com/Analyse4/digimon/svcregister"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/urfave/cli"
 	"log"

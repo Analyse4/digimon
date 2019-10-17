@@ -1,8 +1,8 @@
 package roommanager
 
 import (
-	"digimon/room"
 	"fmt"
+	"github.com/Analyse4/digimon/room"
 	"sync"
 )
 

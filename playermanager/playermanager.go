@@ -1,9 +1,9 @@
 package playermanager
 
 import (
-	"digimon/logger"
-	"digimon/player"
 	"fmt"
+	"github.com/Analyse4/digimon/logger"
+	"github.com/Analyse4/digimon/player"
 	"github.com/sirupsen/logrus"
 	"sync"
 )

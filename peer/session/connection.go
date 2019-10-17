@@ -1,8 +1,8 @@
 package session
 
 import (
-	"digimon/codec"
-	"digimon/peer/cleaner"
+	"github.com/Analyse4/digimon/codec"
+	"github.com/Analyse4/digimon/peer/cleaner"
 	"sync"
 )
 

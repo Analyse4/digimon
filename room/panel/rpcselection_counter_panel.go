@@ -1,8 +1,8 @@
 package panel
 
 import (
-	"digimon/errorhandler"
-	"digimon/player"
+	"github.com/Analyse4/digimon/errorhandler"
+	"github.com/Analyse4/digimon/player"
 	"sync"
 )
 

@@ -1,10 +1,10 @@
 package acceptor
 
 import (
-	"digimon/logger"
-	"digimon/peer/acceptor/websocket"
-	"digimon/service"
 	"fmt"
+	"github.com/Analyse4/digimon/logger"
+	"github.com/Analyse4/digimon/peer/acceptor/websocket"
+	"github.com/Analyse4/digimon/service"
 	"github.com/sirupsen/logrus"
 )
 

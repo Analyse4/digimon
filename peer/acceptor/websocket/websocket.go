@@ -1,10 +1,10 @@
 package websocket
 
 import (
-	"digimon/logger"
-	"digimon/peer/session"
-	"digimon/peer/session/wsconnection"
-	"digimon/service"
+	"github.com/Analyse4/digimon/logger"
+	"github.com/Analyse4/digimon/peer/session"
+	"github.com/Analyse4/digimon/peer/session/wsconnection"
+	"github.com/Analyse4/digimon/service"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 	"net/http"

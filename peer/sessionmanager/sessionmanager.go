@@ -1,10 +1,10 @@
 package sessionmanager
 
 import (
-	"digimon/codec"
-	"digimon/logger"
-	"digimon/peer/cleaner"
-	"digimon/peer/session"
+	"github.com/Analyse4/digimon/codec"
+	"github.com/Analyse4/digimon/logger"
+	"github.com/Analyse4/digimon/peer/cleaner"
+	"github.com/Analyse4/digimon/peer/session"
 	"github.com/sirupsen/logrus"
 	"sync"
 )

@@ -1,7 +1,7 @@
 package dao
 
 import (
-	"digimon/player"
+	"github.com/Analyse4/digimon/player"
 )
 
 func InsertPlayerInfo(p *player.Player) error {

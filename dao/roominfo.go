@@ -1,7 +1,7 @@
 package dao
 
 import (
-	"digimon/room"
+	"github.com/Analyse4/digimon/room"
 	"strconv"
 	"time"
 )

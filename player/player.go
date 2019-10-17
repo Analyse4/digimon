@@ -1,11 +1,11 @@
 package player
 
 import (
-	"digimon/codec"
-	"digimon/errorhandler"
-	"digimon/pbprotocol"
-	"digimon/peer/session"
-	"digimon/utils/randomid"
+	"github.com/Analyse4/digimon/codec"
+	"github.com/Analyse4/digimon/errorhandler"
+	"github.com/Analyse4/digimon/pbprotocol"
+	"github.com/Analyse4/digimon/peer/session"
+	"github.com/Analyse4/digimon/utils/randomid"
 	"github.com/Pallinder/go-randomdata"
 	"sync"
 )

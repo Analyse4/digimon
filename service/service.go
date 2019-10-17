@@ -1,7 +1,7 @@
 package service
 
 import (
-	"digimon/peer/sessionmanager"
+	"github.com/Analyse4/digimon/peer/sessionmanager"
 )
 
 type Service interface {
