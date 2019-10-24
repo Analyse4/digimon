@@ -9,7 +9,7 @@ variables:
   APPNAME: digimon
   PORT: 2244
   NETWORKNAME: digimon    #none if don't need network
-  TAG: 1.0.0-alpha.9
+  TAG: 1.0.0-alpha.10
 
 stages:
   - stage: Build
@@ -31,6 +31,12 @@ stages:
               tags: $(TAG)
           # SSH
           # Run shell commands or a script on a remote machine using SSH
+  - stage: Deploy
+    jobs:
+      - job: deploy
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
           - task: SSH@0
             inputs:
               sshEndpoint: alibabacloud-ecs-1
@@ -54,11 +60,8 @@ stages:
                   exit 1
                 fi
                 # run new container
-                if [[ $(NETWORKNAME) -eq "none" ]]; then
-                  docker run -p $(PORT):$(PORT) -d --name $(APPNAME) analyse4/$(APPNAME):$(TAG)
-                else
-                  docker run -p $(PORT):$(PORT) -d --network=$(NETWORKNAME)  --name $(APPNAME) analyse4/$(APPNAME):$(TAG)
-                fi
+                docker run -p $(PORT):$(PORT) -d --network=digimon  --name $(APPNAME) analyse4/$(APPNAME):$(TAG)
               #args: # Optional
               #failOnStdErr: true # Optional
+
 
