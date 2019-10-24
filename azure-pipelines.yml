@@ -1,39 +1,40 @@
-# Go
-# Build your Go project.
-# Add steps that test, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/go
+# build image and push to docker hub
+# deploy to alibaba cloud(uncompleted)
 
 trigger:
-- master
-
-pool:
-  vmImage: 'ubuntu-latest'
-
+  branches:
+    include:
+      - master
 variables:
-  GOBIN:  '$(GOPATH)/bin' # Go binaries path
-  GOROOT: '/usr/local/go1.11' # Go installation path
-  GOPATH: '$(system.defaultWorkingDirectory)/gopath' # Go workspace path
-  modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)' # Path to the module's code
+  TAG: 1.0.0-alpha
 
-steps:
-- script: |
-    mkdir -p '$(GOBIN)'
-    mkdir -p '$(GOPATH)/pkg'
-    mkdir -p '$(modulePath)'
-    shopt -s extglob
-    shopt -s dotglob
-    mv !(gopath) '$(modulePath)'
-    echo '##vso[task.prependpath]$(GOBIN)'
-    echo '##vso[task.prependpath]$(GOROOT)/bin'
-  displayName: 'Set up the Go workspace'
+stages:
+  - stage: Build
+    jobs:
+      - job: build
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: Docker@2
+            displayName: Login to Docker Hub
+            inputs:
+              command: login
+              containerRegistry: DockerHub
+          - task: Docker@2
+            displayName: Build and Push
+            inputs:
+              command: buildAndPush
+              repository: analyse4/digimon
+              tags: $(TAG)
+          # SSH
+          # Run shell commands or a script on a remote machine using SSH
+          - task: SSH@0
+            inputs:
+              sshEndpoint: alibabacloud-ecs-1
+              runOptions: 'commands' # Options: commands, script, inline
+              commands: mkdir -p /root/test/test # Required when runOptions == Commands
+              #scriptPath: # Required when runOptions == Script
+              #inline: # Required when runOptions == Inline
+              #args: # Optional
+              #failOnStdErr: true # Optional
 
-- script: |
-    go version
-    go get -v -t -d ./...
-    if [ -f Gopkg.toml ]; then
-        curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-        dep ensure
-    fi
-    go build -v .
-  workingDirectory: '$(modulePath)'
-  displayName: 'Get dependencies, then build'

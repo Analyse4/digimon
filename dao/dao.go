@@ -6,7 +6,7 @@ import (
 	"log"
 )
 
-var dsn = "root:123456@tcp(localhost:3306)/digimon?charset=utf8&loc=Local"
+var dsn = "root:123456@tcp(mysql:3306)/digimon?charset=utf8&loc=Local"
 
 var db *sqlx.DB
 
