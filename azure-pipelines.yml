@@ -9,7 +9,7 @@ variables:
   APPNAME: digimon
   PORT: 2244
   NETWORKNAME: digimon    #none if don't need network
-  TAG: 1.0.0-alpha.12
+  TAG: 1.0.0-alpha.13
 
 stages:
   - stage: Build
@@ -60,7 +60,11 @@ stages:
                   exit 1
                 fi
                 # run new container
-                docker run -p $(PORT):$(PORT) -d --network=digimon  --name $(APPNAME) analyse4/$(APPNAME):$(TAG)
+                if [ "$(NETWORKNAME)" = "none" ]; then
+                  docker run -p $(PORT):$(PORT) -d --name $(APPNAME) analyse4/$(APPNAME):$(TAG)
+                else
+                  docker run -p $(PORT):$(PORT) -d --network=$(NETWORKNAME)  --name $(APPNAME) analyse4/$(APPNAME):$(TAG)
+                fi
               #args: # Optional
               #failOnStdErr: true # Optional
 
