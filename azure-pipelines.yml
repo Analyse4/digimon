@@ -6,8 +6,10 @@ trigger:
     include:
       - master
 variables:
-  TAG: 1.0.0-alpha.1
-  TESTTAG: test
+  APPNAME: digimon
+  PORT: 2244
+  NETWORKNAME: digimon    #none if don't need network
+  TAG: 1.0.0-alpha.9
 
 stages:
   - stage: Build
@@ -16,38 +18,47 @@ stages:
         pool:
           vmImage: 'ubuntu-latest'
         steps:
-          - script: |
-              echo $(Build.SourceBranch)
-              git describe
-               ##vso[task.setvariable variable=TESTTAG]git describe
-  - stage: Test
-    jobs:
-      - job: test
-        pool:
-          vmImage: 'ubuntu-latest'
-        steps:
-          - script: |
-              echo $(TESTTAG)
-#          - task: Docker@2
-#            displayName: Login to Docker Hub
-#            inputs:
-#              command: login
-#              containerRegistry: DockerHub
-#          - task: Docker@2
-#            displayName: Build and Push
-#            inputs:
-#              command: buildAndPush
-#              repository: analyse4/digimon
-#              tags: $(TAG)
-#          # SSH
-#          # Run shell commands or a script on a remote machine using SSH
-#          - task: SSH@0
-#            inputs:
-#              sshEndpoint: alibabacloud-ecs-1
-#              runOptions: 'commands' # Options: commands, script, inline
-#              commands: mkdir -p /root/test/test # Required when runOptions == Commands
-#              #scriptPath: # Required when runOptions == Script
-#              #inline: # Required when runOptions == Inline
-#              #args: # Optional
-#              #failOnStdErr: true # Optional
+          - task: Docker@2
+            displayName: Login to Docker Hub
+            inputs:
+              command: login
+              containerRegistry: DockerHub
+          - task: Docker@2
+            displayName: Build and Push
+            inputs:
+              command: buildAndPush
+              repository: analyse4/digimon
+              tags: $(TAG)
+          # SSH
+          # Run shell commands or a script on a remote machine using SSH
+          - task: SSH@0
+            inputs:
+              sshEndpoint: alibabacloud-ecs-1
+              runOptions: 'inline' # Options: commands, script, inline
+              #commands: mkdir -p /root/test/test # Required when runOptions == Commands
+              #scriptPath: # Required when runOptions == Script
+              inline: |
+                # stop container
+                CONTAINER_ID=$(docker ps -qf name=$(APPNAME))
+                if [[ ! -z $CONTAINER_ID ]]; then
+                  docker stop $CONTAINER_ID
+                  docker rm $CONTAINER_ID
+                fi
+                # delete old images
+                if [[ ! -z $(docker images -q --filter=reference='analyse4/$(APPNAME)*') ]]; then
+                  docker rmi $(docker images -q --filter=reference='analyse4/$(APPNAME)*')
+                fi
+                # pull new image
+                docker pull analyse4/$(APPNAME):$(TAG)
+                if [[ -z  "$(docker images -q analyse4/$(APPNAME)):$(TAG))" ]]; then
+                  exit 1
+                fi
+                # run new container
+                if [[ $(NETWORKNAME) -eq "none" ]]; then
+                  docker run -p $(PORT):$(PORT) -d --name $(APPNAME) analyse4/$(APPNAME):$(TAG)
+                else
+                  docker run -p $(PORT):$(PORT) -d --network=$(NETWORKNAME)  --name $(APPNAME) analyse4/$(APPNAME):$(TAG)
+                fi
+              #args: # Optional
+              #failOnStdErr: true # Optional
 
