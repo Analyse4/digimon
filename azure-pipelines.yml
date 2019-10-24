@@ -7,6 +7,7 @@ trigger:
       - master
 variables:
   TAG: 1.0.0-alpha.1
+  TESTTAG: test
 
 stages:
   - stage: Build
@@ -17,7 +18,14 @@ stages:
         steps:
           - script: |
               echo $(Build.SourceBranch)
-              git tag -l
+              git describe
+               ##vso[task.setvariable variable=TESTTAG]git describe
+      - job: test
+        poll:
+          vmImage: 'ubuntu-latest'
+          steps:
+            - script: |
+                echo $(TESTTAG)
 #          - task: Docker@2
 #            displayName: Login to Docker Hub
 #            inputs:
