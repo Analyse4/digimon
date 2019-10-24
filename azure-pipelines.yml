@@ -21,7 +21,7 @@ stages:
               git describe
                ##vso[task.setvariable variable=TESTTAG]git describe
       - job: test
-        poll:
+        pool:
           vmImage: 'ubuntu-latest'
           steps:
             - script: |
