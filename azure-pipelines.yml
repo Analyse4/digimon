@@ -6,7 +6,7 @@ trigger:
     include:
       - master
 variables:
-  TAG: 1.0.0-alpha
+  TAG: 1.0.0-alpha.1
 
 stages:
   - stage: Build
