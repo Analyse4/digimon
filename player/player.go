@@ -130,9 +130,8 @@ func (h *Hero) SetSkillTargets(targets []uint64) {
 }
 
 func (h *Hero) refreshSkillTargets() {
-	for i := range h.SkillTargets {
-		h.SkillTargets[i] = 0
-	}
+	h.SkillTargets = nil
+	h.SkillTargets = make([]uint64, 0)
 }
 
 func (h *Hero) RefreshHeroRoundStatus() {
