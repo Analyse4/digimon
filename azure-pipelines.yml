@@ -9,7 +9,7 @@ variables:
   APPNAME: digimon
   PORT: 2244
   NETWORKNAME: digimon    #none if don't need network
-  TAG: 1.0.0-alpha.13
+  TAG: 1.0.0-alpha.14
 
 stages:
   - stage: Build
